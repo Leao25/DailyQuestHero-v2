@@ -1,8 +1,12 @@
 const CONFIG = {
+  // gameSpeed: multiplica walkSpeed, approachSpeed e reduz cooldowns
+  // 1.0 = normal, 1.5 = 50% mais rápido, 2.0 = dobro
+  gameSpeed: 1.0,
+
   canvas: {
     width:   1152,
     height:  648,
-    groundY: 480,
+    groundY: 600,
   },
 
   hero: {

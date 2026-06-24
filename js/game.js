@@ -1,22 +1,29 @@
-const canvas = document.getElementById('game-canvas');
-const ctx    = canvas.getContext('2d');
-const CW     = CONFIG.canvas.width;
-const CH     = CONFIG.canvas.height;
+let canvas = null;
+let ctx    = null;
+const CW   = CONFIG.canvas.width;
+const CH   = CONFIG.canvas.height;
 
-function drawPlaceholderBG() {
-  // céu
+let hero      = null;
+let mobs      = [];
+let lastTime  = 0;
+let nextSpawn = 0;
+let running   = false;
+
+// ── BG ──────────────────────────────────────────────────────────
+function drawBG() {
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, CW, CH);
 
   // montanhas ao fundo
   ctx.fillStyle = '#0d0d1f';
-  const mts = [[0,420,200,200],[180,380,240,268],[400,400,200,248],[560,360,260,288],[780,390,220,258],[960,410,200,238]];
-  mts.forEach(([x, y, w, h]) => ctx.fillRect(x, y, w, h));
+  [[0,420,200,200],[180,380,240,268],[400,400,200,248],
+   [560,360,260,288],[780,390,220,258],[960,410,200,238]]
+    .forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
 
-  // árvores sombrias
+  // árvores
   ctx.fillStyle = '#0f0f22';
   for (let i = 0; i < 10; i++) {
-    const tx = i * 120 + 40;
+    const tx = ((i * 120 + 40) - (hero ? hero.worldX * 0.3 : 0) % (CW + 200) + CW + 200) % (CW + 200) - 100;
     const th = 100 + (i % 3) * 40;
     const tw = 30 + (i % 3) * 10;
     ctx.fillRect(tx, CONFIG.canvas.groundY - th, tw, th);
@@ -36,29 +43,85 @@ function drawPlaceholderBG() {
   ctx.fillStyle = '#e94560';
   ctx.fillRect(0, CONFIG.canvas.groundY, CW, 2);
 
-  // estrelas
+  // estrelas fixas
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   for (let i = 0; i < 60; i++) {
-    const sx = (i * 137 + 50) % CW;
-    const sy = (i * 97  + 20) % (CONFIG.canvas.groundY - 40);
-    ctx.fillRect(sx, sy, 1, 1);
+    ctx.fillRect((i * 137 + 50) % CW, (i * 97 + 20) % (CONFIG.canvas.groundY - 40), 1, 1);
   }
-
-  // placeholder hero
-  const hx = CONFIG.hero.screenX;
-  const hy = CONFIG.canvas.groundY - CONFIG.hero.spriteH;
-  ctx.fillStyle = '#f0c040';
-  ctx.fillRect(hx, hy, CONFIG.hero.spriteW, CONFIG.hero.spriteH);
-  ctx.fillStyle = '#0a0a0f';
-  ctx.font = '6px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('HERO', hx + CONFIG.hero.spriteW / 2, hy + CONFIG.hero.spriteH / 2 + 2);
 }
 
-function loop() {
+// ── SPAWN ────────────────────────────────────────────────────────
+function spawnMob(now) {
+  const spawnX = hero.worldX + CONFIG.mob.spawnAheadDistance;
+  mobs.push(new Mob('goblin', spawnX));
+  const interval = CONFIG.mob.spawnIntervalMs;
+  nextSpawn = now + interval[0] + Math.random() * (interval[1] - interval[0]);
+}
+
+// ── LOOP ─────────────────────────────────────────────────────────
+function loop(timestamp) {
+  if (!running) return;
+
+  const deltaMs = Math.min(timestamp - lastTime, 50);
+  lastTime = timestamp;
+  const now = Date.now();
+
+  // target: mob mais próximo vivo
+  const target = mobs.filter(m => m.state !== 'dead')
+    .sort((a, b) => Math.abs(a.worldX - hero.worldX) - Math.abs(b.worldX - hero.worldX))[0] ?? null;
+
+  // update
+  hero.update(deltaMs, target);
+
+  mobs.forEach(m => m.update(deltaMs, hero));
+
+  if (target) {
+    Combat.resolve(hero, target, now,
+      (dmg) => { /* onHeroAttack */ },
+      (dmg) => { /* onMobAttack  */ },
+      (mob) => {
+        const leveled = hero.gainXp(mob.xpReward);
+        hero.gold += Math.random() < 0.3 ? 1 : 0;
+      }
+    );
+  }
+
+  mobs = mobs.filter(m => !m.markedForRemoval);
+
+  // spawn
+  if (now >= nextSpawn) spawnMob(now);
+
+  // draw
   ctx.clearRect(0, 0, CW, CH);
-  drawPlaceholderBG();
+  drawBG();
+  mobs.forEach(m => m.draw(ctx, hero));
+  hero.draw(ctx);
+
+  // HUD
+  HUD.update(hero);
+
   requestAnimationFrame(loop);
 }
 
-loop();
+// ── START ────────────────────────────────────────────────────────
+function startGame(heroClass) {
+  hero    = new Hero(heroClass);
+  mobs    = [];
+  running = true;
+
+  HeroSelect.hide();
+
+  canvas = document.getElementById('game-canvas');
+  ctx    = canvas.getContext('2d');
+
+  document.getElementById('hud').style.display = 'flex';
+
+  lastTime  = performance.now();
+  nextSpawn = Date.now() + 1500;
+
+  requestAnimationFrame(loop);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+HeroSelect.init((heroId) => startGame(heroId));
+HeroSelect.show();
