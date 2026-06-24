@@ -22,6 +22,23 @@ const CONFIG = {
     xpToLevelGrowth: 1.35,
   },
 
+  waves: {
+    // ondas por fase — aumenta com o número da fase
+    // fase 1 = 5 ondas, fase 2 = 6, fase 3 = 7... (wavesBase + faseAtual)
+    wavesBase:      4,
+    wavesPerPhase:  1,    // +1 onda por fase
+    wavesMax:       20,   // cap máximo de ondas por fase
+
+    // distribuição dos períodos (porcentagem do total de ondas)
+    morningUntil:   0.40, // 0–40%   = manhã
+    afternoonUntil: 0.80, // 40–80%  = tarde
+                          // 80–100% = noite + boss
+
+    // mobs por onda — aumenta com o número da onda
+    mobsPerWave:    5,
+    mobsGrowth:     1,    // +1 mob por onda dentro da fase
+  },
+
   mob: {
     spawnIntervalMs:    [1500, 2500],
     approachSpeed:      0.8,
