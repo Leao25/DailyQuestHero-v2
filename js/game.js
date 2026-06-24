@@ -3,11 +3,12 @@ let ctx    = null;
 const CW   = CONFIG.canvas.width;
 const CH   = CONFIG.canvas.height;
 
-let hero      = null;
-let mobs      = [];
-let lastTime  = 0;
-let nextSpawn = 0;
-let running   = false;
+let hero     = null;
+let mobs     = [];
+let lastTime = 0;
+let running  = false;
+
+let spawnCooldown = 0; // ms até próximo spawn dentro da onda
 
 // ── BG ──────────────────────────────────────────────────────────
 function drawBG() {
@@ -51,11 +52,12 @@ function drawBG() {
 }
 
 // ── SPAWN ────────────────────────────────────────────────────────
-function spawnMob(now) {
+function spawnMob() {
   const spawnX = hero.worldX + CONFIG.mob.spawnAheadDistance;
   mobs.push(new Mob('goblin', spawnX));
-  const interval = CONFIG.mob.spawnIntervalMs;
-  nextSpawn = now + interval[0] + Math.random() * (interval[1] - interval[0]);
+  WaveSystem.onSpawned();
+  const iv = CONFIG.mob.spawnIntervalMs;
+  spawnCooldown = iv[0] + Math.random() * (iv[1] - iv[0]);
 }
 
 // ── LOOP ─────────────────────────────────────────────────────────
@@ -80,16 +82,24 @@ function loop(timestamp) {
       (dmg) => { /* onHeroAttack */ },
       (dmg) => { /* onMobAttack  */ },
       (mob) => {
-        const leveled = hero.gainXp(mob.xpReward);
+        hero.gainXp(mob.xpReward);
         hero.gold += Math.random() < 0.3 ? 1 : 0;
+        WaveSystem.onMobDied(mobs);
       }
     );
   }
 
   mobs = mobs.filter(m => !m.markedForRemoval);
 
+  // onda completa → avança
+  if (WaveSystem.state === 'waveComplete') {
+    WaveSystem.nextWave();
+    spawnCooldown = 2000; // pausa entre ondas
+  }
+
   // spawn
-  if (now >= nextSpawn) spawnMob(now);
+  spawnCooldown -= deltaMs;
+  if (spawnCooldown <= 0 && WaveSystem.shouldSpawn()) spawnMob();
 
   // draw
   ctx.clearRect(0, 0, CW, CH);
@@ -98,7 +108,7 @@ function loop(timestamp) {
   hero.draw(ctx);
 
   // HUD
-  HUD.update(hero);
+  HUD.update(hero, WaveSystem);
 
   requestAnimationFrame(loop);
 }
@@ -116,8 +126,9 @@ function startGame(heroClass) {
 
   document.getElementById('hud').style.display = 'flex';
 
-  lastTime  = performance.now();
-  nextSpawn = Date.now() + 1500;
+  WaveSystem.init();
+  lastTime      = performance.now();
+  spawnCooldown = 1500;
 
   requestAnimationFrame(loop);
 }
