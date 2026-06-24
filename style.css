@@ -1,0 +1,177 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0a0a0f;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1rem;
+  font-family: 'Press Start 2P', system-ui, monospace;
+}
+
+#page-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 1152px;
+  max-width: 100%;
+}
+
+/* ── Logo ── */
+#game-logo {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 0 8px;
+}
+
+#logo-img {
+  max-height: 48px;
+  image-rendering: pixelated;
+}
+
+#logo-placeholder {
+  font-size: 18px;
+  color: #f0c040;
+  letter-spacing: 4px;
+  display: none;
+}
+
+/* mostra placeholder se imagem não carregar */
+#logo-img:not([src]), #logo-img[src=""] {
+  display: none;
+}
+#logo-img.error { display: none; }
+
+/* ── Canvas ── */
+#canvas-wrap {
+  width: 1152px;
+  max-width: 100%;
+  aspect-ratio: 16/9;
+  border: 2px solid #222;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* ── HUD ── */
+#hud {
+  width: 1152px;
+  max-width: 100%;
+  background: #111118;
+  border: 2px solid #222;
+  border-top: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  gap: 12px;
+}
+
+#hud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 220px;
+}
+
+#hero-name {
+  font-size: 9px;
+  color: #f0c040;
+  letter-spacing: 1px;
+}
+
+#hero-level {
+  font-size: 8px;
+  color: #888;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bar-label {
+  font-size: 7px;
+  color: #666;
+  width: 16px;
+}
+
+.bar-bg {
+  flex: 1;
+  height: 8px;
+  background: #222;
+  border-radius: 2px;
+  overflow: hidden;
+  max-width: 140px;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s;
+}
+
+.hp-fill { background: #e94560; }
+.xp-fill { background: #4e9af1; }
+
+.bar-text {
+  font-size: 7px;
+  color: #666;
+  min-width: 52px;
+}
+
+#hud-center {
+  flex: 1;
+  text-align: center;
+}
+
+#zone-label {
+  font-size: 8px;
+  color: #444;
+  letter-spacing: 2px;
+}
+
+#hud-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 140px;
+  justify-content: flex-end;
+}
+
+#gold-display {
+  font-size: 9px;
+  color: #f0c040;
+}
+
+#menu-btns {
+  display: flex;
+  gap: 6px;
+}
+
+#menu-btns button {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+
+#menu-btns button:hover {
+  border-color: #f0c040;
+}

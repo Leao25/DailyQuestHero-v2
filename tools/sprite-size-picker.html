@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sprite Size Picker — DQH v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0a0a0f; color: #eee; display: flex; flex-direction: column; align-items: center; padding: 1.5rem; gap: 1rem; }
+
+  h1 { font-size: 15px; color: #f0c040; }
+  .hint { font-size: 12px; color: #555; }
+
+  #stage-wrap {
+    position: relative;
+    border: 2px solid #333;
+    overflow: hidden;
+    cursor: default;
+  }
+
+  #stage { display: block; }
+
+  .sprite-box {
+    position: absolute;
+    bottom: 35%;
+    border: 2px dashed #f0c040;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: move;
+    user-select: none;
+  }
+  .sprite-box .blabel {
+    font-size: 10px;
+    color: #f0c040;
+    background: rgba(0,0,0,0.7);
+    padding: 1px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .sprite-box .resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 12px;
+    height: 12px;
+    background: #f0c040;
+    border-radius: 2px;
+    cursor: se-resize;
+  }
+
+  #hero-box  { border-color: #f0c040; left: 22%; }
+  #mob-box   { border-color: #e94560; right: 28%; }
+  #mob-box .blabel { color: #e94560; }
+  #mob-box .resize-handle { background: #e94560; }
+
+  .controls {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+  .ctrl-group label { font-size: 12px; color: #888; }
+  .ctrl-group input[type=range] { width: 200px; }
+
+  .specs {
+    display: grid;
+    grid-template-columns: repeat(4, auto);
+    gap: 8px 24px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 12px;
+  }
+  .specs .sk { color: #555; }
+  .specs .sv { color: #eee; font-weight: 600; font-family: monospace; }
+
+  button.confirm {
+    background: #f0c040;
+    color: #0a0a0f;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 28px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button.confirm:hover { background: #ffd860; }
+</style>
+</head>
+<body>
+
+<h1>Tamanho dos sprites — DQH v2</h1>
+<p class="hint">Arraste as caixas para reposicionar · Arraste o canto inferior direito para redimensionar</p>
+
+<div id="stage-wrap">
+  <canvas id="stage"></canvas>
+
+  <div class="sprite-box" id="hero-box">
+    <div class="blabel" id="hero-label">HERO 80×120</div>
+    <div class="resize-handle" id="hero-resize"></div>
+  </div>
+
+  <div class="sprite-box" id="mob-box">
+    <div class="blabel" id="mob-label">MOB 70×100</div>
+    <div class="resize-handle" id="mob-resize"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <label>Largura do Hero</label>
+    <input type="range" id="hw-slider" min="20" max="300" value="80" step="1">
+  </div>
+  <div class="ctrl-group">
+    <label>Altura do Hero</label>
+    <input type="range" id="hh-slider" min="20" max="400" value="120" step="1">
+  </div>
+  <div class="ctrl-group">
+    <label>Largura do Mob</label>
+    <input type="range" id="mw-slider" min="20" max="300" value="70" step="1">
+  </div>
+  <div class="ctrl-group">
+    <label>Altura do Mob</label>
+    <input type="range" id="mh-slider" min="20" max="400" value="100" step="1">
+  </div>
+</div>
+
+<div class="specs" id="specs"></div>
+
+<button class="confirm" onclick="copySpecs()">Copiar especificações</button>
+<p id="copy-msg" style="font-size:12px;color:#555;min-height:16px"></p>
+
+<script>
+const CW = 1152, CH = 648;
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+
+// escala para caber na tela
+const maxW = Math.min(window.innerWidth - 48, 1152);
+const SCALE = maxW / CW;
+canvas.width  = CW;
+canvas.height = CH;
+canvas.style.width  = Math.round(CW * SCALE) + 'px';
+canvas.style.height = Math.round(CH * SCALE) + 'px';
+
+const wrap = document.getElementById('stage-wrap');
+wrap.style.width  = Math.round(CW * SCALE) + 'px';
+wrap.style.height = Math.round(CH * SCALE) + 'px';
+
+// estado dos sprites (em px do canvas real)
+const sprites = {
+  hero: { w: 80, h: 120 },
+  mob:  { w: 70, h: 100  }
+};
+
+function drawBG() {
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, CW, CH);
+  // céu gradiente simulado
+  ctx.fillStyle = '#0f0f2a'; ctx.fillRect(0, 0, CW, CH * 0.5);
+  ctx.fillStyle = '#16213e'; ctx.fillRect(0, CH * 0.5, CW, CH * 0.2);
+  // chão
+  ctx.fillStyle = '#1b1b3a'; ctx.fillRect(0, CH * 0.7, CW, CH * 0.3);
+  ctx.fillStyle = '#e94560'; ctx.fillRect(0, CH * 0.7, CW, 3);
+  // estrelas
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  // seed fixa para não piscar
+  for (let i = 0; i < 80; i++) {
+    const sx = ((i * 137 + 50) % CW);
+    const sy = ((i * 97  + 30) % Math.round(CH * 0.65));
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+  // árvores sombrias simples
+  ctx.fillStyle = '#0d0d1f';
+  for (let i = 0; i < 8; i++) {
+    const tx = 60 + i * 150;
+    const tw = 40 + (i % 3) * 20;
+    const th = 80 + (i % 4) * 30;
+    ctx.fillRect(tx - tw/2, CH * 0.7 - th, tw, th);
+    // copa triangular
+    ctx.beginPath();
+    ctx.moveTo(tx, CH * 0.7 - th - 50);
+    ctx.lineTo(tx - tw, CH * 0.7 - th);
+    ctx.lineTo(tx + tw, CH * 0.7 - th);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function updateBoxes() {
+  ['hero', 'mob'].forEach(id => {
+    const box = document.getElementById(id + '-box');
+    const s = sprites[id];
+    const bw = Math.round(s.w * SCALE);
+    const bh = Math.round(s.h * SCALE);
+    box.style.width  = bw + 'px';
+    box.style.height = bh + 'px';
+    // posição inicial se não foi arrastada
+    if (!box._placed) {
+      const groundY = Math.round(CH * 0.7 * SCALE);
+      box.style.bottom = (Math.round(CH * SCALE) - groundY) + 'px';
+      box.style.left   = id === 'hero' ? Math.round(CW * 0.22 * SCALE) + 'px' : '';
+      box.style.right  = id === 'mob'  ? Math.round(CW * 0.22 * SCALE) + 'px' : '';
+    }
+    document.getElementById(id + '-label').textContent =
+      id.toUpperCase() + ' ' + s.w + '×' + s.h;
+  });
+  updateSpecs();
+}
+
+function updateSpecs() {
+  const h = sprites.hero, m = sprites.mob;
+  const frames = (sz) => sz.h <= 48 ? 4 : sz.h <= 96 ? 4 : 6;
+  const hf = frames(h), mf = frames(m);
+  document.getElementById('specs').innerHTML = `
+    <span class="sk">Hero sprite</span>     <span class="sv">${h.w}×${h.h}px</span>
+    <span class="sk">Hero sheet (walk)</span><span class="sv">${h.w * hf}×${h.h}px &nbsp;(${hf} frames)</span>
+    <span class="sk">Mob sprite</span>      <span class="sv">${m.w}×${m.h}px</span>
+    <span class="sk">Mob sheet (walk)</span> <span class="sv">${m.w * mf}×${m.h}px &nbsp;(${mf} frames)</span>
+    <span class="sk">Canvas</span>          <span class="sv">1152×648px</span>
+    <span class="sk">BG</span>              <span class="sv">2304×648px</span>
+    <span class="sk">Hero % da tela</span>  <span class="sv">${(h.h / CH * 100).toFixed(0)}% da altura</span>
+    <span class="sk">Mob % da tela</span>   <span class="sv">${(m.h / CH * 100).toFixed(0)}% da altura</span>
+  `;
+}
+
+// sliders
+['hw','hh','mw','mh'].forEach(id => {
+  document.getElementById(id + '-slider').addEventListener('input', function() {
+    const which = id[0] === 'h' ? 'hero' : 'mob';
+    const dim   = id[1] === 'w' ? 'w' : 'h';
+    sprites[which][dim] = parseInt(this.value);
+    document.getElementById(id[0] === 'h' ? 'hw-slider' : 'mw-slider').value = sprites[which].w;
+    document.getElementById(id[0] === 'h' ? 'hh-slider' : 'mh-slider').value = sprites[which].h;
+    updateBoxes();
+  });
+});
+
+// drag para mover
+function makeDraggable(boxId) {
+  const box = document.getElementById(boxId);
+  let dragging = false, ox, oy, startL, startT;
+
+  box.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('resize-handle')) return;
+    dragging = true;
+    ox = e.clientX; oy = e.clientY;
+    const rect = box.getBoundingClientRect();
+    const wRect = wrap.getBoundingClientRect();
+    startL = rect.left - wRect.left;
+    startT = rect.top  - wRect.top;
+    box._placed = true;
+    box.style.right  = '';
+    box.style.bottom = '';
+    box.style.left   = startL + 'px';
+    box.style.top    = startT + 'px';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - ox, dy = e.clientY - oy;
+    const wRect = wrap.getBoundingClientRect();
+    const newL = Math.max(0, Math.min(wRect.width  - box.offsetWidth,  startL + dx));
+    const newT = Math.max(0, Math.min(wRect.height - box.offsetHeight, startT + dy));
+    box.style.left = newL + 'px';
+    box.style.top  = newT + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+// drag para redimensionar
+function makeResizable(boxId, spriteKey) {
+  const handle = document.getElementById(boxId + '-resize');
+  let resizing = false, ox, oy, sw, sh;
+
+  handle.addEventListener('mousedown', e => {
+    resizing = true;
+    ox = e.clientX; oy = e.clientY;
+    sw = sprites[spriteKey].w;
+    sh = sprites[spriteKey].h;
+    e.stopPropagation(); e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const dx = Math.round((e.clientX - ox) / SCALE);
+    const dy = Math.round((e.clientY - oy) / SCALE);
+    sprites[spriteKey].w = Math.max(16, Math.min(400, sw + dx));
+    sprites[spriteKey].h = Math.max(16, Math.min(500, sh + dy));
+    document.getElementById(spriteKey[0] + 'w-slider').value = sprites[spriteKey].w;
+    document.getElementById(spriteKey[0] + 'h-slider').value = sprites[spriteKey].h;
+    updateBoxes();
+  });
+
+  document.addEventListener('mouseup', () => { resizing = false; });
+}
+
+makeDraggable('hero-box'); makeDraggable('mob-box');
+makeResizable('hero', 'hero'); makeResizable('mob', 'mob');
+
+function copySpecs() {
+  const h = sprites.hero, m = sprites.mob;
+  const hf = h.h <= 96 ? 4 : 6, mf = m.h <= 96 ? 4 : 6;
+  const text = `DQH v2 — Padrões de Sprites
+Canvas: 1152×648px
+BG: 2304×648px
+Hero: ${h.w}×${h.h}px | sheet walk: ${h.w*hf}×${h.h}px (${hf} frames)
+Mob:  ${m.w}×${m.h}px | sheet walk: ${m.w*mf}×${m.h}px (${mf} frames)`;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('copy-msg').textContent = 'Copiado!';
+    setTimeout(() => document.getElementById('copy-msg').textContent = '', 2000);
+  });
+}
+
+drawBG();
+updateBoxes();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Screen Size Picker — DQH v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0a0a0f; color: #eee; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 1.5rem; }
+
+  h1 { font-size: 15px; color: #f0c040; margin-bottom: 4px; }
+  .hint { font-size: 12px; color: #555; margin-bottom: 1.2rem; }
+
+  .options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 1.5rem; }
+  .opt {
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    background: #1a1a2e;
+    font-size: 13px;
+    color: #aaa;
+    transition: border-color .15s, color .15s;
+  }
+  .opt:hover { border-color: #666; color: #eee; }
+  .opt.selected { border-color: #f0c040; color: #f0c040; font-weight: 600; }
+
+  #canvas-wrap {
+    position: relative;
+    border: 2px solid #f0c040;
+    background: #1a1a2e;
+  }
+
+  #info-bar {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+  }
+  #info-bar b { color: #aaa; }
+</style>
+</head>
+<body>
+
+<h1>Escolha o tamanho do canvas</h1>
+<p class="hint">Selecione uma opção para ver como o canvas vai aparecer no seu browser em tamanho real</p>
+
+<div class="options" id="opts"></div>
+
+<div id="canvas-wrap">
+  <canvas id="preview"></canvas>
+</div>
+
+<div id="info-bar"></div>
+
+<script>
+const sizes = [
+  { w: 384,  h: 216,  label: '384×216' },
+  { w: 480,  h: 270,  label: '480×270' },
+  { w: 640,  h: 360,  label: '640×360' },
+  { w: 800,  h: 450,  label: '800×450' },
+  { w: 960,  h: 540,  label: '960×540' },
+  { w: 1152, h: 648,  label: '1152×648' },
+];
+
+const canvas = document.getElementById('preview');
+const ctx = canvas.getContext('2d');
+
+function drawCanvas(w, h) {
+  canvas.width  = w;
+  canvas.height = h;
+
+  // BG escuro
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, w, h);
+
+  // chão
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, h * 0.65, w, h * 0.35);
+
+  // linha do chão
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(0, h * 0.65, w, 2);
+
+  // estrelas
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 40; i++) {
+    ctx.fillRect(Math.floor(Math.random() * w), Math.floor(Math.random() * h * 0.6), 1, 1);
+  }
+
+  // boneco placeholder do hero (retângulo simples no chão)
+  const heroH = Math.round(h * 0.28);
+  const heroW = Math.round(heroH * 0.55);
+  const heroX = Math.round(w * 0.25);
+  const heroY = Math.round(h * 0.65) - heroH;
+  ctx.fillStyle = '#f0c040';
+  ctx.fillRect(heroX, heroY, heroW, heroH);
+  ctx.fillStyle = '#0a0a0f';
+  ctx.font = `bold ${Math.max(8, Math.round(heroH * 0.18))}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('HERO', heroX + heroW / 2, heroY + heroH / 2 + 4);
+
+  // mob placeholder
+  const mobH = Math.round(h * 0.22);
+  const mobW = Math.round(mobH * 0.55);
+  const mobX = Math.round(w * 0.65);
+  const mobY = Math.round(h * 0.65) - mobH;
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(mobX, mobY, mobW, mobH);
+  ctx.fillStyle = '#0a0a0f';
+  ctx.font = `bold ${Math.max(8, Math.round(mobH * 0.18))}px monospace`;
+  ctx.fillText('MOB', mobX + mobW / 2, mobY + mobH / 2 + 4);
+
+  // dimensões no canto
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = `${Math.max(9, Math.round(h * 0.04))}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillText(`${w}×${h}`, 8, 16);
+
+  document.getElementById('info-bar').innerHTML =
+    `Canvas em tamanho real: <b>${w}×${h}px</b> &nbsp;|&nbsp; BG recomendado: <b>${w*2}×${h}px</b>`;
+}
+
+// monta botões
+const container = document.getElementById('opts');
+sizes.forEach((s, i) => {
+  const btn = document.createElement('div');
+  btn.className = 'opt' + (i === 1 ? ' selected' : '');
+  btn.textContent = s.label;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.opt').forEach(x => x.classList.remove('selected'));
+    btn.classList.add('selected');
+    drawCanvas(s.w, s.h);
+  });
+  container.appendChild(btn);
+});
+
+drawCanvas(480, 270);
+</script>
+</body>
+</html>

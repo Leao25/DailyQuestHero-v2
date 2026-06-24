@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DailyQuestHero v2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="page-wrapper">
+
+    <!-- Logo -->
+    <div id="game-logo">
+      <img src="assets/ui/dqh_logo.png" alt="DailyQuestHero" id="logo-img"
+           onerror="this.style.display='none';document.getElementById('logo-placeholder').style.display='block'" />
+      <span id="logo-placeholder">DailyQuestHero</span>
+    </div>
+
+    <!-- Canvas principal -->
+    <div id="canvas-wrap">
+      <canvas id="game-canvas" width="1152" height="648"></canvas>
+    </div>
+
+    <!-- HUD — fora do canvas, em HTML puro -->
+    <div id="hud">
+
+      <div id="hud-left">
+        <div id="hero-name">Guerreiro</div>
+        <div id="hero-level">Lv. 1</div>
+        <div class="bar-row">
+          <span class="bar-label">HP</span>
+          <div class="bar-bg"><div id="hp-bar" class="bar-fill hp-fill" style="width:100%"></div></div>
+          <span class="bar-text" id="hp-text">100/100</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">XP</span>
+          <div class="bar-bg"><div id="xp-bar" class="bar-fill xp-fill" style="width:0%"></div></div>
+          <span class="bar-text" id="xp-text">0/100</span>
+        </div>
+      </div>
+
+      <div id="hud-center">
+        <span id="zone-label">FASE 1 — VILA</span>
+      </div>
+
+      <div id="hud-right">
+        <span id="gold-display">🪙 0</span>
+        <div id="menu-btns">
+          <button>⚔️</button>
+          <button>💼</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
