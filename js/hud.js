@@ -1,13 +1,29 @@
 const HUD = {
+  _els: null,
+
+  _init() {
+    this._els = {
+      name:  document.getElementById('hero-name'),
+      level: document.getElementById('hero-level'),
+      hpBar: document.getElementById('hp-bar'),
+      hpTxt: document.getElementById('hp-text'),
+      xpBar: document.getElementById('xp-bar'),
+      xpTxt: document.getElementById('xp-text'),
+      gold:  document.getElementById('gold-display'),
+      zone:  document.getElementById('zone-label'),
+    };
+  },
+
   update(hero) {
-    document.getElementById('hero-name').textContent    = hero.heroName;
-    document.getElementById('hero-level').textContent   = `Lv. ${hero.level}`;
-    document.getElementById('hp-bar').style.width       = (hero.hp / hero.maxHp * 100) + '%';
-    document.getElementById('hp-text').textContent      = `${hero.hp}/${hero.maxHp}`;
-    document.getElementById('xp-bar').style.width       = (hero.xp / hero.xpToNext * 100) + '%';
-    document.getElementById('xp-text').textContent      = `${hero.xp}/${hero.xpToNext}`;
-    document.getElementById('gold-display').textContent = `🪙 ${hero.gold}`;
-    document.getElementById('zone-label').textContent   =
-      `Fase ${DayCycle.phase}  ·  ${DayCycle.getPeriodName()}  ·  ${DayCycle.getTimeString()}`;
+    if (!this._els) this._init();
+    const e = this._els;
+    e.name.textContent  = hero.heroName;
+    e.level.textContent = `Lv. ${hero.level}`;
+    e.hpBar.style.width = (hero.hp / hero.maxHp * 100) + '%';
+    e.hpTxt.textContent = `${hero.hp}/${hero.maxHp}`;
+    e.xpBar.style.width = (hero.xp / hero.xpToNext * 100) + '%';
+    e.xpTxt.textContent = `${hero.xp}/${hero.xpToNext}`;
+    e.gold.textContent  = `🪙 ${hero.gold}`;
+    e.zone.textContent  = `Fase ${DayCycle.phase}  ·  ${DayCycle.getPeriodName()}  ·  ${DayCycle.getTimeString()}`;
   },
 };

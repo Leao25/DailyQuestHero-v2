@@ -35,10 +35,6 @@ const DayCycle = {
     }
   },
 
-  shouldSpawnBoss() {
-    return false; // boss desativado temporariamente
-  },
-
   // retorna true UMA VEZ quando o relógio cruza 04:00 (fim da noite)
   shouldAutoAdvance() {
     if (this._autoAdvanced) return false;

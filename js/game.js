@@ -147,14 +147,15 @@ function loop() {
   BgSystem.update(deltaMs);
 
   const liveMobs = mobs.filter(m => m.state !== 'dead');
-  const target   = liveMobs
-    .sort((a, b) => Math.abs(a.worldX - hero.worldX) - Math.abs(b.worldX - hero.worldX))[0] ?? null;
+  const target   = liveMobs.reduce((closest, m) => {
+    if (!closest) return m;
+    return Math.abs(m.worldX - hero.worldX) < Math.abs(closest.worldX - hero.worldX) ? m : closest;
+  }, null);
 
   hero.update(deltaMs, target);
   mobs.forEach(m => m.update(deltaMs, hero));
 
   liveMobs.forEach(mob => {
-    if (mob.state === 'dead') return;
     Combat.resolve(hero, mob, now,
       () => {},
       (dmg) => {

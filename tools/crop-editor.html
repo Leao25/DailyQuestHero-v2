@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Crop Editor — DailyQuestHero</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #eee; font-family: monospace; display: flex; height: 100vh; overflow: hidden; }
+
+  #sidebar {
+    width: 260px; min-width: 260px; background: #0f0f1a; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+  }
+  #sidebar h2 { color: #f0c040; font-size: 14px; margin-bottom: 4px; }
+  label { font-size: 12px; color: #aaa; display: block; margin-bottom: 2px; }
+  input[type=number], input[type=text] {
+    width: 100%; background: #222; border: 1px solid #444; color: #eee;
+    padding: 5px 8px; border-radius: 4px; font-size: 13px;
+  }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  button {
+    width: 100%; padding: 8px; border: none; border-radius: 4px;
+    cursor: pointer; font-size: 13px; font-family: monospace;
+  }
+  .btn-load  { background: #2a5caa; color: #fff; }
+  .btn-equal { background: #2a6644; color: #fff; }
+  .btn-export{ background: #f0c040; color: #111; font-weight: bold; }
+  button:hover { filter: brightness(1.15); }
+
+  #preview-grid {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+    max-height: 220px; overflow-y: auto;
+  }
+  #preview-grid canvas { border: 1px solid #333; cursor: pointer; }
+  #preview-grid canvas:hover { border-color: #f0c040; }
+
+  #status { font-size: 11px; color: #888; min-height: 16px; }
+
+  #main { flex: 1; overflow: auto; padding: 16px; position: relative; }
+  #canvas-wrap { position: relative; display: inline-block; }
+  #img-canvas { display: block; image-rendering: pixelated; }
+
+  .v-line, .h-line {
+    position: absolute; background: rgba(240,192,64,0.8);
+    cursor: col-resize; z-index: 10;
+  }
+  .v-line { width: 2px; top: 0; bottom: 0; }
+  .h-line { height: 2px; left: 0; right: 0; cursor: row-resize; }
+  .v-line:hover, .h-line:hover { background: #fff; }
+
+  input[type=file] { display: none; }
+  .section { border-top: 1px solid #333; padding-top: 10px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>🗂 Crop Editor</h2>
+
+  <div>
+    <label>Arquivo de imagem</label>
+    <button class="btn-load" onclick="document.getElementById('file-input').click()">📂 Abrir imagem</button>
+    <input type="file" id="file-input" accept="image/*" onchange="loadImage(event)"/>
+  </div>
+
+  <div id="status">Nenhuma imagem carregada</div>
+
+  <div class="section">
+    <label>Zoom</label>
+    <input type="range" id="zoom" min="0.1" max="3" step="0.05" value="1" oninput="setZoom(this.value)" style="width:100%"/>
+    <span id="zoom-label" style="font-size:11px;color:#888">100%</span>
+  </div>
+
+  <div class="section">
+    <h2>Grade de corte</h2>
+    <div class="row">
+      <div>
+        <label>Colunas</label>
+        <input type="number" id="cols" value="4" min="1" max="20" oninput="rebuildGrid()"/>
+      </div>
+      <div>
+        <label>Linhas</label>
+        <input type="number" id="rows" value="3" min="1" max="20" oninput="rebuildGrid()"/>
+      </div>
+    </div>
+    <button class="btn-equal" onclick="equalizeGrid()" style="margin-top:6px">⚖️ Distribuir igual</button>
+    <div style="font-size:11px;color:#666;margin-top:4px">Arraste as linhas para ajustar posição</div>
+  </div>
+
+  <div class="section">
+    <h2>Exportar</h2>
+    <div>
+      <label>Prefixo do arquivo</label>
+      <input type="text" id="prefix" value="rock" placeholder="ex: tree, rock, bush"/>
+    </div>
+    <div style="margin-top:6px">
+      <label>Sufixo do arquivo</label>
+      <input type="text" id="suffix" value="_bg_mid" placeholder="ex: _bg_mid"/>
+    </div>
+    <button class="btn-export" onclick="exportAll()" style="margin-top:8px">💾 Exportar todos</button>
+    <div style="font-size:11px;color:#666;margin-top:4px">Exporta: prefix+N+suffix.png</div>
+  </div>
+
+  <div class="section">
+    <h2>Preview dos crops</h2>
+    <div id="preview-grid"></div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="img-canvas"></canvas>
+  </div>
+</div>
+
+<script>
+let img = null;
+let zoom = 1;
+let vLines = []; // posições X em pixels da imagem original
+let hLines = []; // posições Y em pixels da imagem original
+let dragging = null; // { type: 'v'|'h', idx }
+
+const canvas = document.getElementById('img-canvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvas-wrap');
+
+function loadImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  img = new Image();
+  img.onload = () => {
+    document.getElementById('status').textContent = `${file.name} — ${img.width}×${img.height}px`;
+    equalizeGrid();
+    draw();
+  };
+  img.src = url;
+}
+
+function setZoom(v) {
+  zoom = parseFloat(v);
+  document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+  draw();
+}
+
+function equalizeGrid() {
+  if (!img) return;
+  const cols = parseInt(document.getElementById('cols').value) || 1;
+  const rows = parseInt(document.getElementById('rows').value) || 1;
+  vLines = [];
+  for (let i = 1; i < cols; i++) vLines.push(Math.round(img.width * i / cols));
+  hLines = [];
+  for (let i = 1; i < rows; i++) hLines.push(Math.round(img.height * i / rows));
+  draw();
+}
+
+function rebuildGrid() {
+  equalizeGrid();
+}
+
+function draw() {
+  if (!img) return;
+  const W = Math.round(img.width  * zoom);
+  const H = Math.round(img.height * zoom);
+  canvas.width  = W;
+  canvas.height = H;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, W, H);
+
+  // linhas verticais
+  ctx.strokeStyle = 'rgba(240,192,64,0.85)';
+  ctx.lineWidth = 1.5;
+  vLines.forEach(x => {
+    const sx = Math.round(x * zoom);
+    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+  });
+
+  // linhas horizontais
+  hLines.forEach(y => {
+    const sy = Math.round(y * zoom);
+    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+  });
+
+  // etiquetas de células
+  const xs = [0, ...vLines, img.width];
+  const ys = [0, ...hLines, img.height];
+  ctx.fillStyle = 'rgba(240,192,64,0.7)';
+  ctx.font = `${Math.max(10, 13 * zoom)}px monospace`;
+  ctx.textAlign = 'left';
+  let n = 1;
+  for (let r = 0; r < ys.length - 1; r++) {
+    for (let c = 0; c < xs.length - 1; c++) {
+      ctx.fillText(n++, xs[c] * zoom + 4, ys[r] * zoom + 16);
+    }
+  }
+
+  updatePreviews();
+}
+
+// drag lines
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / zoom;
+  const my = (e.clientY - rect.top)  / zoom;
+  const hit = 6 / zoom;
+
+  for (let i = 0; i < vLines.length; i++) {
+    if (Math.abs(mx - vLines[i]) < hit) { dragging = { type: 'v', idx: i }; return; }
+  }
+  for (let i = 0; i < hLines.length; i++) {
+    if (Math.abs(my - hLines[i]) < hit) { dragging = { type: 'h', idx: i }; return; }
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (!dragging || !img) return;
+  const rect = canvas.getBoundingClientRect();
+  if (dragging.type === 'v') {
+    let x = Math.round((e.clientX - rect.left) / zoom);
+    x = Math.max(1, Math.min(img.width - 1, x));
+    vLines[dragging.idx] = x;
+  } else {
+    let y = Math.round((e.clientY - rect.top) / zoom);
+    y = Math.max(1, Math.min(img.height - 1, y));
+    hLines[dragging.idx] = y;
+  }
+  draw();
+});
+
+window.addEventListener('mouseup', () => { dragging = null; });
+
+function getCrops() {
+  if (!img) return [];
+  const xs = [0, ...vLines.slice().sort((a,b)=>a-b), img.width];
+  const ys = [0, ...hLines.slice().sort((a,b)=>a-b), img.height];
+  const crops = [];
+  for (let r = 0; r < ys.length - 1; r++) {
+    for (let c = 0; c < xs.length - 1; c++) {
+      crops.push({ x: xs[c], y: ys[r], w: xs[c+1] - xs[c], h: ys[r+1] - ys[r] });
+    }
+  }
+  return crops;
+}
+
+function updatePreviews() {
+  const grid = document.getElementById('preview-grid');
+  grid.innerHTML = '';
+  const crops = getCrops();
+  const maxH = 60;
+  crops.forEach((crop, i) => {
+    const c = document.createElement('canvas');
+    const scale = maxH / crop.h;
+    c.width  = Math.round(crop.w * scale);
+    c.height = maxH;
+    c.title  = `#${i+1} — ${crop.w}×${crop.h}px`;
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, c.width, c.height);
+    grid.appendChild(c);
+  });
+}
+
+function exportAll() {
+  if (!img) return alert('Carregue uma imagem primeiro!');
+  const prefix = document.getElementById('prefix').value || 'crop';
+  const suffix = document.getElementById('suffix').value || '';
+  const crops  = getCrops();
+  let i = 0;
+  function next() {
+    if (i >= crops.length) return;
+    const crop = crops[i];
+    const c  = document.createElement('canvas');
+    c.width  = crop.w;
+    c.height = crop.h;
+    const cx = c.getContext('2d');
+    cx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+    const a = document.createElement('a');
+    a.download = `${prefix}${i+1}${suffix}.png`;
+    a.href = c.toDataURL('image/png');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    i++;
+    setTimeout(next, 150);
+  }
+  next();
+}
+</script>
+</body>
+</html>

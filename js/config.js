@@ -6,7 +6,7 @@ const CONFIG = {
   canvas: {
     width:   1152,
     height:  648,
-    groundY: 600,
+    groundY: 620,
   },
 
   hero: {
