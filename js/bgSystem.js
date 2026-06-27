@@ -39,8 +39,8 @@ const BgSystem = {
 
   // near props: assets individuais que aparecem sequencialmente com distância mínima variável
   _nearConfig: {
-    minGap:  1800,   // distância mínima em world units entre props
-    maxGap:  3600,   // distância máxima
+    minGap:  2500,   // distância mínima em world units entre props
+    maxGap:  5000,   // distância máxima
     phases: {
       1: [
         { key: 'tree1_{period}',  scale: 0.35, yOffset: 68  },
