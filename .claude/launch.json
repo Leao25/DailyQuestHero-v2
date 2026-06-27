@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "parallax-builder",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "3001", "."],
+      "port": 3001
+    }
+  ]
+}

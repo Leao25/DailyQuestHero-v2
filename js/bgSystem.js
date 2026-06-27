@@ -168,7 +168,7 @@ const BgSystem = {
         const dw = Math.ceil(img.naturalWidth * s);
         const dh = Math.ceil(img.naturalHeight * s);
         const raw = heroWorldX * layer.parallax;
-        const offset = raw % dw;
+        const offset = Math.floor(raw % dw);
         const numTiles = Math.ceil(CW / dw) + 1;
         for (let i = 0; i < numTiles; i++) {
           ctx.drawImage(img, i * dw - offset, layer.y, dw + 1, dh);
@@ -358,7 +358,7 @@ const BgSystem = {
       const def = pool[Math.floor(Math.random() * pool.length)];
       const imgKey = def.key.replace('{period}', period);
       // posição em screen space no lado direito, convertida para world space do parallax
-      const propWorldX = heroWorldX * parallax + 1250;
+      const propWorldX = heroWorldX * parallax + 1600;
       this._nearProps.push({ imgKey, worldX: propWorldX, scale: def.scale, yOffset: def.yOffset ?? 0 });
       this._nextNearWorldX = heroWorldX + minGap + Math.random() * (maxGap - minGap);
     }
@@ -418,7 +418,7 @@ const BgSystem = {
       // escala proporcional: mantém aspect ratio
       const scale = destH / srcH;
       const dw     = Math.ceil(srcW * scale);
-      const offset = heroWorldX % dw;
+      const offset = Math.floor(heroWorldX % dw);
       const numTiles = Math.ceil(CW / dw) + 1;
       for (let i = 0; i < numTiles; i++) {
         ctx.drawImage(img, 0, srcY, srcW, srcH, i * dw - offset, destY, dw + 1, destH);

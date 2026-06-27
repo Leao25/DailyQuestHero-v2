@@ -51,6 +51,23 @@ Fórmula: `progresso = ondaAtual / totalOndas`
 - Ícone ou cor indica o período atual (manhã/tarde/noite)
 - BG troca automaticamente ao mudar de período
 
+## gameSpeed — Regra de Velocidade Global
+
+`CONFIG.gameSpeed` é o multiplicador global de velocidade do jogo (padrão: `1.2`).
+
+**Toda nova mecânica que envolva velocidade ou cooldown DEVE respeitar essa regra:**
+
+| O que implementar | Como aplicar |
+|---|---|
+| Velocidade de movimento (hero, mob) | `speed * CONFIG.gameSpeed` |
+| Cooldown de ataque / habilidade | `cooldownMs / CONFIG.gameSpeed` |
+| Velocidade de projétil (flecha, magia) | `speed * CONFIG.gameSpeed` |
+| Intervalo de spawn | `interval / CONFIG.gameSpeed` |
+| Frame rate de animação sprite | `frameDuration / CONFIG.gameSpeed` |
+| Duração de efeitos visuais (partículas, flashes) | `duration / CONFIG.gameSpeed` |
+
+Assim, ajustar um único valor no `config.js` acelera ou desacelera tudo proporcionalmente.
+
 ## Estilo Visual
 - Pixel art, tema dark/sombrio
 - Referência: Taskbar Hero (estilo), PostKnight (sidescrolling/menus)
