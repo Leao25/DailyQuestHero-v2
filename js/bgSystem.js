@@ -30,43 +30,33 @@ const BgSystem = {
   _period: null,
   _phase: null,
   _cloudOffset: 0,
-  _scatter: { mid: [] },
-
-  // config scatter por fase — pool de índices de árvore e densidade
-  _scatterConfig: {
-    1: { pool: [1, 2, 5], midCount: 7 },
+  // mid props: mesmo sistema do near, parallax menor para simular profundidade
+  _midConfig: {
+    parallax: 0.18,
+    minGap:   1200,
+    maxGap:   2800,
+    phases: {
+      1: [
+        // adicionar assets aqui: { key: 'nome_{period}', scale: 0.3, yOffset: 10 }
+      ],
+    },
   },
+  _midProps: [],
+  _nextMidWorldX: 0,
 
   // near props: assets individuais que aparecem sequencialmente com distância mínima variável
   _nearConfig: {
-    minGap:  2500,   // distância mínima em world units entre props
-    maxGap:  5000,   // distância máxima
+    minGap:  2500,
+    maxGap:  5000,
     phases: {
       1: [
-        { key: 'tree1_{period}',  scale: 0.35, yOffset: 68  },
-        { key: 'house1_{period}', scale: 0.60, yOffset: 62  },
+        // adicionar assets aqui: { key: 'nome_{period}', scale: 0.5, yOffset: 60 }
       ],
     },
   },
   _nearProps: [],      // props ativos: { imgKey, worldX, scale }
   _nextNearWorldX: 0, // worldX do herói onde o próximo prop será spawnado
 
-  _initScatter(phase) {
-    const cfg = this._scatterConfig[phase] ?? this._scatterConfig[1];
-    const sheet = 2304;
-
-    let seed = phase * 9301 + 49297;
-    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-
-    const mid = [];
-    const spacing = sheet / cfg.midCount;
-    for (let i = 0; i < cfg.midCount; i++) {
-      const treeIdx = cfg.pool[Math.floor(rand() * cfg.pool.length)];
-      const wx = spacing * i + rand() * spacing * 0.7;
-      mid.push({ treeIdx, wx, scale: 0.4 * (0.85 + rand() * 0.3) });
-    }
-    this._scatter.mid = mid;
-  },
 
   update(deltaMs) {
     this._cloudOffset += 0.01 * CONFIG.gameSpeed * deltaMs;
@@ -88,10 +78,10 @@ const BgSystem = {
         }
       });
 
-      // pré-carrega árvores do mid scatter
-      const cfg = this._scatterConfig[phase] ?? this._scatterConfig[1];
-      for (const idx of cfg.pool) {
-        const key = `tree_${period}_${String(idx).padStart(2,'0')}`;
+      // pré-carrega mid props
+      const midPool = this._midConfig.phases[phase] ?? this._midConfig.phases[1];
+      for (const def of midPool) {
+        const key = def.key.replace('{period}', period);
         if (!this._images[key]) {
           const img = new Image();
           img.src = `assets/bg/${key}.png`;
@@ -121,7 +111,6 @@ const BgSystem = {
       }
     });
 
-    this._initScatter(phase);
   },
 
   load(phase, period) {
@@ -132,6 +121,8 @@ const BgSystem = {
     if (phaseChanged) {
       this._nearProps = [];
       this._nextNearWorldX = this._nearConfig.minGap;
+      this._midProps = [];
+      this._nextMidWorldX = this._midConfig.minGap;
     }
     this.preload(phase);
   },
@@ -180,7 +171,10 @@ const BgSystem = {
         this._drawLayerFallback(ctx, layer, heroWorldX, CW, CH, period);
       }
 
-      if (layer.key === 'mountains') this._drawScatter(ctx, 'mid', heroWorldX, period, CW, groundY);
+      if (layer.key === 'mountains') {
+        this._updateMidProps(heroWorldX, phase);
+        this._drawMidProps(ctx, heroWorldX, period, CW, groundY);
+      }
     });
 
     // 5. Near props (sequenciais, aleatórios)
@@ -381,27 +375,30 @@ const BgSystem = {
     }
   },
 
-  _drawScatter(ctx, layerKey, heroWorldX, period, CW, groundY) {
-    const parallax = layerKey === 'mid' ? 0.25 : 0.55;
-    const sheet    = 2304;
-    const objects  = this._scatter[layerKey];
-    if (!objects || objects.length === 0) return;
+  _updateMidProps(heroWorldX, phase) {
+    const { parallax, minGap, maxGap } = this._midConfig;
+    const pool = this._midConfig.phases[phase] ?? this._midConfig.phases[1];
 
-    for (const obj of objects) {
-      const key = `tree_${period}_${String(obj.treeIdx).padStart(2, '0')}`;
-      const img = this._images[key];
+    if (heroWorldX >= this._nextMidWorldX) {
+      const def = pool[Math.floor(Math.random() * pool.length)];
+      const propWorldX = heroWorldX * parallax + 1600;
+      this._midProps.push({ keyTemplate: def.key, worldX: propWorldX, scale: def.scale, yOffset: def.yOffset ?? 0 });
+      this._nextMidWorldX = heroWorldX + minGap + Math.random() * (maxGap - minGap);
+    }
+
+    this._midProps = this._midProps.filter(p => p.worldX - heroWorldX * parallax > -400);
+  },
+
+  _drawMidProps(ctx, heroWorldX, period, CW, groundY) {
+    const parallax = this._midConfig.parallax;
+    for (const prop of this._midProps) {
+      const img = this._images[prop.keyTemplate.replace('{period}', period)];
       if (!img || !img.complete || !img.naturalWidth) continue;
-
-      const dw = Math.round(img.naturalWidth  * obj.scale);
-      const dh = Math.round(img.naturalHeight * obj.scale);
-
-      for (let t = 0; t < 2; t++) {
-        const rawX = obj.wx + t * sheet - heroWorldX * parallax;
-        const x    = ((rawX % sheet) + sheet) % sheet - dw;
-        if (x > CW + dw || x < -dw * 2) continue;
-        const y = groundY - dh + 10;
-        ctx.drawImage(img, x, y, dw, dh);
-      }
+      const dw = Math.round(img.naturalWidth  * prop.scale);
+      const dh = Math.round(img.naturalHeight * prop.scale);
+      const screenX = prop.worldX - heroWorldX * parallax;
+      if (screenX > CW + dw || screenX < -dw) continue;
+      ctx.drawImage(img, screenX - dw / 2, groundY - dh + (prop.yOffset ?? 0), dw, dh);
     }
   },
 
