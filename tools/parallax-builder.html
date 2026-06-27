@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Parallax Builder — DQH v2</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #0a0a0f; color: #eee; display: flex; gap: 0; min-height: 100vh; }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 320px; min-width: 320px;
+  background: #0d0d1a;
+  border-right: 1px solid #222;
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+
+#sidebar h1 { font-size: 13px; color: #f0c040; padding: 14px 16px 10px; border-bottom: 1px solid #222; letter-spacing: 1px; }
+
+.layer-card {
+  border-bottom: 1px solid #1a1a2e;
+  padding: 10px 14px;
+}
+.layer-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;
+}
+.layer-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.layer-name { font-size: 11px; font-weight: 600; flex: 1; }
+.layer-speed { font-size: 10px; color: #555; }
+.layer-toggle { font-size: 11px; color: #444; margin-left: auto; }
+
+.layer-body { display: flex; flex-direction: column; gap: 6px; }
+.layer-body.collapsed { display: none; }
+
+.prop-row { display: flex; align-items: center; gap: 8px; }
+.prop-label { font-size: 10px; color: #666; width: 60px; flex-shrink: 0; }
+.prop-val { font-size: 10px; color: #f0c040; width: 48px; text-align: right; font-family: monospace; }
+input[type=range] { flex: 1; height: 4px; accent-color: #f0c040; }
+input[type=checkbox] { accent-color: #f0c040; }
+
+.copy-btn {
+  margin: 12px 14px;
+  background: #f0c040; color: #0a0a0f;
+  border: none; border-radius: 4px;
+  padding: 8px 0; font-size: 11px; font-weight: 700;
+  cursor: pointer; letter-spacing: 1px;
+}
+.copy-btn:hover { background: #ffd860; }
+#copy-msg { font-size: 10px; color: #555; text-align: center; padding-bottom: 8px; min-height: 14px; }
+
+/* ── Canvas area ── */
+#main {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  gap: 12px;
+  overflow: auto;
+}
+
+#period-tabs { display: flex; gap: 8px; }
+.tab-btn {
+  background: #1a1a2e; border: 1px solid #333; color: #666;
+  border-radius: 4px; padding: 6px 16px; font-size: 11px; cursor: pointer;
+}
+.tab-btn.active { border-color: #f0c040; color: #f0c040; }
+
+#canvas-wrap { position: relative; border: 2px solid #333; }
+#stage { display: block; image-rendering: pixelated; }
+
+/* overlay boxes para elementos arrastáveis */
+.el-box {
+  position: absolute;
+  border: 1px dashed #f0c040;
+  cursor: move;
+  user-select: none;
+}
+.el-box .el-label {
+  position: absolute; top: -18px; left: 0;
+  font-size: 9px; color: #f0c040;
+  background: rgba(0,0,0,0.7); padding: 1px 5px; border-radius: 2px;
+  white-space: nowrap; pointer-events: none;
+}
+.el-box .el-resize {
+  position: absolute; bottom: -5px; right: -5px;
+  width: 10px; height: 10px;
+  background: #f0c040; border-radius: 2px; cursor: se-resize;
+}
+
+#info-bar {
+  font-size: 10px; color: #444; letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <h1>PARALLAX BUILDER — DQH v2</h1>
+  <div id="layer-list"></div>
+  <button class="copy-btn" onclick="copySpecs()">Copiar Especificações</button>
+  <div id="copy-msg"></div>
+</div>
+
+<!-- Canvas -->
+<div id="main">
+  <div id="period-tabs">
+    <button class="tab-btn active" onclick="setPeriod('night',this)">🌙 Noite</button>
+    <button class="tab-btn" onclick="setPeriod('morning',this)">🌅 Manhã</button>
+    <button class="tab-btn" onclick="setPeriod('afternoon',this)">☀️ Tarde</button>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="stage"></canvas>
+  </div>
+  <div id="info-bar">Canvas: 1152×648px · groundY: 600px · Escala de visualização aplicada</div>
+</div>
+
+<script>
+const CW = 1152, CH = 648, GROUND_Y = 600;
+const maxW = Math.min(window.innerWidth - 360, 1100);
+const SCALE = maxW / CW;
+
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+canvas.width  = CW;
+canvas.height = CH;
+canvas.style.width  = Math.round(CW * SCALE) + 'px';
+canvas.style.height = Math.round(CH * SCALE) + 'px';
+
+const wrap = document.getElementById('canvas-wrap');
+wrap.style.width  = Math.round(CW * SCALE) + 'px';
+wrap.style.height = Math.round(CH * SCALE) + 'px';
+
+let period = 'night';
+
+// ── Paletas por período ──
+const SKY_COLORS = {
+  night:     { top: '#020210', bottom: '#0d0d2a' },
+  morning:   { top: '#0d0d2a', bottom: '#8b3a1a' },
+  afternoon: { top: '#0d1b4a', bottom: '#1a3a6a' },
+};
+
+// ── Elementos arrastáveis ──
+const elements = [
+  { id: 'moon',       label: 'Lua',            color: '#c8b06a', layer: 'astros',     x: 820, y: 80,  w: 120, h: 120, periods: ['night'], visible: true },
+  { id: 'sun',        label: 'Sol',             color: '#f0a020', layer: 'astros',     x: 900, y: 60,  w: 140, h: 140, periods: ['afternoon'],        visible: true },
+  { id: 'sun_rise',   label: 'Sol Nascente',    color: '#f07020', layer: 'astros',     x: 950, y: 100, w: 100, h: 100, periods: ['morning'],           visible: true },
+  { id: 'clouds',     label: 'Nuvens',          color: '#5b9bd5', layer: 'clouds',     x: 0,   y: 60,  w: 2304,h: 180, periods: ['night','morning','afternoon'], visible: true },
+  { id: 'mountains',  label: 'Montanhas',       color: '#7b4fcf', layer: 'mountains',  x: 0,   y: 350, w: 2304,h: 250, periods: ['night','morning','afternoon'], visible: true },
+  { id: 'mid',        label: 'Fundo Médio',     color: '#e05c5c', layer: 'mid',        x: 0,   y: 380, w: 2304,h: 220, periods: ['night','morning','afternoon'], visible: true },
+  { id: 'near',       label: 'Vegetação',       color: '#3dba6a', layer: 'near',       x: 0,   y: 460, w: 2304,h: 140, periods: ['night','morning','afternoon'], visible: true },
+  { id: 'hero',       label: 'Hero (ref)',      color: '#e8a030', layer: 'chars',      x: 256, y: GROUND_Y - 68, w: 48,  h: 68,  periods: ['night','morning','afternoon'], visible: true },
+  { id: 'mob',        label: 'Mob (ref)',        color: '#4caf50', layer: 'chars',      x: 500, y: GROUND_Y - 70, w: 48,  h: 70,  periods: ['night','morning','afternoon'], visible: true },
+];
+
+// ── Layers config (para sidebar) ──
+const layers = [
+  { id: 'sky',       name: 'Céu (gradiente)',  color: '#2a4a8a', parallax: 0,    elements: [] },
+  { id: 'stars',     name: 'Estrelas',         color: '#ffffff', parallax: 0,    elements: [] },
+  { id: 'astros',    name: 'Lua / Sol',        color: '#c8b06a', parallax: 0.02, elements: ['moon','sun','sun_rise'] },
+  { id: 'clouds',    name: 'Nuvens',           color: '#4a5a7a', parallax: 0.05, elements: ['clouds'] },
+  { id: 'mountains', name: 'Montanhas',        color: '#1a1a3a', parallax: 0.08, elements: ['mountains'] },
+  { id: 'mid',       name: 'Fundo Médio',      color: '#141428', parallax: 0.25, elements: ['mid'] },
+  { id: 'near',      name: 'Vegetação',        color: '#0f0f22', parallax: 0.55, elements: ['near'] },
+  { id: 'ground',    name: 'Chão',             color: '#16162a', parallax: 1.00, elements: [] },
+  { id: 'chars',     name: 'Hero / Mob (ref)', color: '#888888', parallax: 1.00, elements: ['hero','mob'] },
+];
+
+let collapsed = {};
+
+// ── Build sidebar ──
+function buildSidebar() {
+  const list = document.getElementById('layer-list');
+  list.innerHTML = '';
+  layers.forEach(layer => {
+    const card = document.createElement('div');
+    card.className = 'layer-card';
+    const els = layer.elements.map(id => elements.find(e => e.id === id)).filter(Boolean);
+    card.innerHTML = `
+      <div class="layer-header" onclick="toggleLayer('${layer.id}')">
+        <div class="layer-dot" style="background:${layer.color}"></div>
+        <span class="layer-name">${layer.name}</span>
+        <span class="layer-speed">${layer.parallax === 0 ? 'estático' : (layer.parallax * 100).toFixed(0) + '%'}</span>
+        <span class="layer-toggle" id="toggle-${layer.id}">▼</span>
+      </div>
+      <div class="layer-body ${collapsed[layer.id] ? 'collapsed' : ''}" id="body-${layer.id}">
+        ${els.map(el => `
+          <div style="font-size:10px;color:#888;margin:2px 0">${el.label}</div>
+          <div class="prop-row">
+            <span class="prop-label">Largura</span>
+            <input type="range" min="20" max="2304" value="${el.w}" step="1"
+              oninput="updateEl('${el.id}','w',+this.value);document.getElementById('val-${el.id}-w').textContent=this.value+'px'">
+            <span class="prop-val" id="val-${el.id}-w">${el.w}px</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Altura</span>
+            <input type="range" min="20" max="648" value="${el.h}" step="1"
+              oninput="updateEl('${el.id}','h',+this.value);document.getElementById('val-${el.id}-h').textContent=this.value+'px'">
+            <span class="prop-val" id="val-${el.id}-h">${el.h}px</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Y (topo)</span>
+            <input type="range" min="0" max="${CH}" value="${el.y}" step="1"
+              oninput="updateEl('${el.id}','y',+this.value);document.getElementById('val-${el.id}-y').textContent=this.value+'px'">
+            <span class="prop-val" id="val-${el.id}-y">${el.y}px</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Visível</span>
+            <input type="checkbox" ${el.visible?'checked':''} onchange="updateEl('${el.id}','visible',this.checked)">
+          </div>
+        `).join('')}
+        ${els.length === 0 ? '<span style="font-size:10px;color:#333">gerado por código</span>' : ''}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function toggleLayer(id) {
+  collapsed[id] = !collapsed[id];
+  document.getElementById('body-' + id).classList.toggle('collapsed', collapsed[id]);
+  document.getElementById('toggle-' + id).textContent = collapsed[id] ? '▶' : '▼';
+}
+
+function updateEl(id, prop, val) {
+  const el = elements.find(e => e.id === id);
+  if (el) { el[prop] = val; drawAll(); updateOverlays(); }
+}
+
+// ── Draw canvas ──
+function drawAll() {
+  ctx.clearRect(0, 0, CW, CH);
+
+  // 1. Céu gradiente
+  const sc = SKY_COLORS[period];
+  const grad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  grad.addColorStop(0, sc.top);
+  grad.addColorStop(1, sc.bottom);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CW, CH);
+
+  // 2. Estrelas (noite/manhã)
+  if (period !== 'afternoon') {
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    for (let i = 0; i < 80; i++) {
+      ctx.fillRect((i * 137 + 50) % CW, (i * 97 + 20) % (GROUND_Y * 0.6 | 0), 1, 1);
+    }
+  }
+
+  // 3. Elementos por camada (ordem)
+  const order = ['clouds','mountains','mid','near'];
+  order.forEach(layerId => {
+    const layer = layers.find(l => l.id === layerId);
+    layer.elements.forEach(eid => {
+      const el = elements.find(e => e.id === eid);
+      if (!el || !el.visible) return;
+      if (!el.periods.includes(period)) return;
+      drawEl(el);
+    });
+  });
+
+  // 4. Astros
+  const astroLayer = layers.find(l => l.id === 'astros');
+  astroLayer.elements.forEach(eid => {
+    const el = elements.find(e => e.id === eid);
+    if (!el || !el.visible || !el.periods.includes(period)) return;
+    drawElAstro(el);
+  });
+
+  // 5. Chão
+  ctx.fillStyle = '#16162a';
+  ctx.fillRect(0, GROUND_Y, CW, CH - GROUND_Y);
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(0, GROUND_Y, CW, 2);
+
+  // 6. Hero/Mob ref
+  ['hero','mob'].forEach(eid => {
+    const el = elements.find(e => e.id === eid);
+    if (!el || !el.visible) return;
+    ctx.fillStyle = el.color + '99';
+    ctx.fillRect(el.x, el.y, el.w, el.h);
+    ctx.strokeStyle = el.color;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(el.x, el.y, el.w, el.h);
+    ctx.fillStyle = el.color;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(el.label, el.x + el.w/2, el.y - 4);
+  });
+}
+
+function drawEl(el) {
+  ctx.fillStyle = el.color + 'aa';
+  ctx.fillRect(el.x, el.y, Math.min(el.w, CW), el.h);
+  ctx.strokeStyle = el.color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeRect(el.x, el.y, Math.min(el.w, CW), el.h);
+  ctx.setLineDash([]);
+  ctx.fillStyle = el.color;
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${el.label} — ${el.w}×${el.h}px  y:${el.y}`, el.x + 8, el.y + 16);
+}
+
+function drawElAstro(el) {
+  // círculo para astros
+  ctx.save();
+  ctx.fillStyle = el.color + 'cc';
+  ctx.beginPath();
+  ctx.ellipse(el.x + el.w/2, el.y + el.h/2, el.w/2, el.h/2, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = el.color;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = el.color;
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${el.label} ${el.w}×${el.h}px`, el.x + el.w/2, el.y - 6);
+  ctx.restore();
+}
+
+// ── Overlays arrastáveis para astros ──
+function updateOverlays() {
+  document.querySelectorAll('.el-box').forEach(b => b.remove());
+  elements.filter(e => ['moon','sun','sun_rise','hero','mob'].includes(e.id)).forEach(el => {
+    if (!el.visible || !el.periods.includes(period)) return;
+    const box = document.createElement('div');
+    box.className = 'el-box';
+    box.id = 'elbox-' + el.id;
+    box.style.left   = Math.round(el.x * SCALE) + 'px';
+    box.style.top    = Math.round(el.y * SCALE) + 'px';
+    box.style.width  = Math.round(el.w * SCALE) + 'px';
+    box.style.height = Math.round(el.h * SCALE) + 'px';
+    box.style.borderColor = el.color;
+    box.innerHTML = `<div class="el-label" style="color:${el.color}">${el.label}</div><div class="el-resize"></div>`;
+    makeDraggable(box, el);
+    makeResizable(box.querySelector('.el-resize'), el);
+    wrap.appendChild(box);
+  });
+}
+
+function makeDraggable(box, el) {
+  let drag = false, ox, oy, sx, sy;
+  box.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('el-resize')) return;
+    drag = true; ox = e.clientX; oy = e.clientY;
+    sx = el.x; sy = el.y; e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    el.x = Math.round(sx + (e.clientX - ox) / SCALE);
+    el.y = Math.round(sy + (e.clientY - oy) / SCALE);
+    box.style.left = Math.round(el.x * SCALE) + 'px';
+    box.style.top  = Math.round(el.y * SCALE) + 'px';
+    // atualiza sliders
+    const ySlider = document.querySelector(`input[oninput*="'${el.id}','y'"]`);
+    if (ySlider) { ySlider.value = el.y; document.getElementById(`val-${el.id}-y`).textContent = el.y + 'px'; }
+    drawAll();
+  });
+  document.addEventListener('mouseup', () => { drag = false; });
+}
+
+function makeResizable(handle, el) {
+  let drag = false, ox, oy, sw, sh;
+  handle.addEventListener('mousedown', e => {
+    drag = true; ox = e.clientX; oy = e.clientY;
+    sw = el.w; sh = el.h; e.stopPropagation(); e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    el.w = Math.max(20, Math.round(sw + (e.clientX - ox) / SCALE));
+    el.h = Math.max(20, Math.round(sh + (e.clientY - oy) / SCALE));
+    const box = document.getElementById('elbox-' + el.id);
+    if (box) { box.style.width = Math.round(el.w * SCALE) + 'px'; box.style.height = Math.round(el.h * SCALE) + 'px'; }
+    const wSlider = document.querySelector(`input[oninput*="'${el.id}','w'"]`);
+    const hSlider = document.querySelector(`input[oninput*="'${el.id}','h'"]`);
+    if (wSlider) { wSlider.value = el.w; document.getElementById(`val-${el.id}-w`).textContent = el.w + 'px'; }
+    if (hSlider) { hSlider.value = el.h; document.getElementById(`val-${el.id}-h`).textContent = el.h + 'px'; }
+    drawAll();
+  });
+  document.addEventListener('mouseup', () => { drag = false; });
+}
+
+function setPeriod(p, btn) {
+  period = p;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  drawAll(); updateOverlays();
+}
+
+function copySpecs() {
+  const lines = ['DQH v2 — Especificação de Camadas Parallax', ''];
+  layers.forEach(layer => {
+    lines.push(`## ${layer.name} (parallax: ${(layer.parallax*100).toFixed(0)}%)`);
+    layer.elements.forEach(eid => {
+      const el = elements.find(e => e.id === eid);
+      if (el) lines.push(`  ${el.label}: ${el.w}×${el.h}px  y:${el.y}  períodos: ${el.periods.join(', ')}`);
+    });
+    if (layer.elements.length === 0) lines.push('  (gerado por código)');
+    lines.push('');
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    document.getElementById('copy-msg').textContent = 'Copiado!';
+    setTimeout(() => document.getElementById('copy-msg').textContent = '', 2000);
+  });
+}
+
+buildSidebar();
+drawAll();
+updateOverlays();
+</script>
+</body>
+</html>

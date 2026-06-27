@@ -22,6 +22,22 @@
       <canvas id="game-canvas" width="1152" height="648"></canvas>
     </div>
 
+    <!-- Phase complete overlay -->
+    <div id="phase-complete">
+      <div id="phase-complete-title">FASE CONCLUÍDA</div>
+      <div id="phase-complete-sub"></div>
+      <button id="btn-next-phase" onclick="startNextPhase()">Próxima Fase →</button>
+    </div>
+
+    <!-- Death buttons (fora do canvas-wrap para sobreviver ao hide/show) -->
+    <div id="death-btns">
+      <button id="btn-restart" onclick="restartPhase()">Recomeçar</button>
+      <button id="btn-heroselect" onclick="goToHeroSelect()">Seleção de Personagem</button>
+    </div>
+
+    <!-- Combat Log (fora do canvas-wrap para sobreviver ao hide/show) -->
+    <div id="combat-log"></div>
+
     <!-- HUD — fora do canvas, em HTML puro -->
     <div id="hud">
 
@@ -49,14 +65,44 @@
         <div id="menu-btns">
           <button>⚔️</button>
           <button>💼</button>
+          <button id="btn-autorepeat" title="Auto: OFF" onclick="toggleAutoRepeat()">Auto</button>
         </div>
       </div>
 
     </div>
 
+    <!-- Baús -->
+    <div id="chest-bar">
+      <span id="chest-bar-label">BAÚS</span>
+      <div id="chest-slots">
+        <div class="chest-item" id="chest-item-normal">
+          <button class="chest-btn" id="chest-btn-normal" onclick="ChestSystem.open('normal')">N</button>
+          <div class="chest-dots" id="chest-dots-normal"></div>
+        </div>
+        <div class="chest-item" id="chest-item-rare">
+          <button class="chest-btn" id="chest-btn-rare" onclick="ChestSystem.open('rare')">R</button>
+          <div class="chest-dots" id="chest-dots-rare"></div>
+        </div>
+        <div class="chest-item" id="chest-item-epic">
+          <button class="chest-btn" id="chest-btn-epic" onclick="ChestSystem.open('epic')">E</button>
+          <div class="chest-dots" id="chest-dots-epic"></div>
+        </div>
+        <div class="chest-item" id="chest-item-legendary">
+          <button class="chest-btn" id="chest-btn-legendary" onclick="ChestSystem.open('legendary')">L</button>
+          <div class="chest-dots" id="chest-dots-legendary"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/dayCycle.js"></script>
+  <script src="js/bgSystem.js"></script>
+  <script src="js/saveSystem.js"></script>
+  <script src="js/chestSystem.js"></script>
+  <script src="js/combatLog.js"></script>
+  <script src="js/floatingNumbers.js"></script>
   <script src="js/hero.js"></script>
   <script src="js/mob.js"></script>
   <script src="js/combat.js"></script>

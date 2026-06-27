@@ -4,22 +4,21 @@ const Combat = {
 
     const dist = Math.abs(hero.worldX - mob.worldX);
 
-    // hero ataca mob
+    // hero inicia ataque — dano e flecha são disparados no último frame (game.js)
     if (dist <= hero.attackRange && hero.canAttack(now)) {
-      const dmg = hero.performAttack(now);
-      mob.takeDamage(dmg);
-      onHeroAttack(dmg);
-      if (mob.state === 'dead') {
-        mob.markedForRemoval = true;
-        onMobDeath(mob);
-      }
+      hero.performAttack(now);
     }
 
     // mob ataca hero
     if (dist <= mob.attackRange && mob.state !== 'dead' && mob.canAttack(now)) {
       const dmg = mob.performAttack(now);
-      hero.takeDamage(dmg);
-      onMobAttack(dmg);
+      if (Math.random() < hero.dodgeChance) {
+        hero.dodge();
+        onMobAttack(0); // sinaliza dodge para o game.js mostrar o texto
+      } else {
+        hero.takeDamage(dmg);
+        onMobAttack(dmg);
+      }
     }
   },
 };

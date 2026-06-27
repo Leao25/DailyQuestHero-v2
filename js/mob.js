@@ -1,4 +1,22 @@
 const MOB_TYPES = {
+  boss: {
+    key:      'boss',
+    name:     'Chefe',
+    color:    '#c0392b',
+    hp:       300,
+    attack:   18,
+    attackRange:    55,
+    attackCooldownMs: 1000,
+    xpReward: 150,
+    approachSpeed: 0.5,
+    spriteW:  80,
+    spriteH:  100,
+    lootTable: [
+      { rarity: 'rare',      chance: 1.0  },
+      { rarity: 'epic',      chance: 0.50 },
+      { rarity: 'legendary', chance: 0.15 },
+    ],
+  },
   goblin: {
     key:      'goblin',
     name:     'Goblin',
@@ -11,6 +29,13 @@ const MOB_TYPES = {
     approachSpeed: 0.7,
     spriteW:  48,
     spriteH:  60,
+    // chance de 0.0 a 1.0 — editável por mob
+    lootTable: [
+      { rarity: 'normal',    chance: 0.30 },
+      { rarity: 'rare',      chance: 0.08 },
+      { rarity: 'epic',      chance: 0.02 },
+      { rarity: 'legendary', chance: 0.005 },
+    ],
   },
 };
 
@@ -23,7 +48,7 @@ class Mob {
     this.hp          = def.hp;
     this.attack      = def.attack;
     this.attackRange = def.attackRange;
-    this.attackCooldownMs = def.attackCooldownMs;
+    this.attackCooldownMs = def.attackCooldownMs / CONFIG.gameSpeed;
     this.xpReward    = def.xpReward;
     this.approachSpeed = def.approachSpeed;
     this.state       = 'walking';
@@ -50,7 +75,8 @@ class Mob {
     const dist = Math.abs(this.worldX - hero.worldX);
     if (dist > this.attackRange) {
       this.state = 'walking';
-      this.worldX -= this.approachSpeed * (deltaMs / 16.67);
+      const extra = hero.state === 'attacking' ? CONFIG.hero.walkSpeed : 0;
+      this.worldX -= (this.approachSpeed + extra) * CONFIG.gameSpeed * (deltaMs / 16.67);
     } else {
       this.state = 'attacking';
     }
@@ -76,8 +102,17 @@ class Mob {
     ctx.fillStyle = this.state === 'attacking' ? '#ff4444' : this.type.color;
     ctx.fillRect(screenX - w / 2, y - h, w, h);
 
+    // boss: aura pulsante
+    if (this.type.key === 'boss') {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,50,50,${0.4 + 0.3 * Math.sin(Date.now() / 200)})`;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(screenX - w / 2 - 4, y - h - 4, w + 8, h + 8);
+      ctx.restore();
+    }
+
     // olhos
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = this.type.key === 'boss' ? '#ff0000' : 'rgba(0,0,0,0.6)';
     const eyeS = Math.max(2, w * 0.1);
     ctx.fillRect(screenX - w * 0.2, y - h * 0.78, eyeS, eyeS);
     ctx.fillRect(screenX + w * 0.08, y - h * 0.78, eyeS, eyeS);

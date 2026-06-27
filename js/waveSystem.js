@@ -1,54 +1,32 @@
 const WaveSystem = {
-  phase:       1,   // fase atual (cresce infinitamente)
-  wave:        1,   // onda atual dentro da fase
-  totalWaves:  5,   // total de ondas nessa fase
-  mobsLeft:    0,   // mobs restantes na onda atual
-  mobsToSpawn: 0,   // mobs ainda para spawnar nessa onda
-  bossWave:    false,
-  state:       'spawning', // 'spawning' | 'waiting' | 'waveComplete' | 'bossSpawned'
+  mobsToSpawn: 0,
+  mobsLeft:    0,
+  state:       'spawning', // 'spawning' | 'waiting'
 
   init() {
-    this.phase      = 1;
-    this.wave       = 1;
-    this.totalWaves = this._calcTotalWaves(1);
+    DayCycle.init();
     this._startWave();
   },
 
-  _calcTotalWaves(phase) {
-    return Math.min(
-      CONFIG.waves.wavesBase + (phase - 1) * CONFIG.waves.wavesPerPhase,
-      CONFIG.waves.wavesMax
-    );
-  },
-
-  _calcMobsForWave() {
-    return CONFIG.waves.mobsPerWave + (this.wave - 1) * CONFIG.waves.mobsGrowth;
+  _mobsForPeriod() {
+    const base = { morning: 3, afternoon: 5, night: 7 };
+    return (base[DayCycle.getPeriod()] ?? 4) + Math.floor(DayCycle.phase / 2);
   },
 
   _startWave() {
-    const progress  = this.wave / this.totalWaves;
-    this.bossWave   = progress > CONFIG.waves.afternoonUntil;
-    this.mobsToSpawn = this._calcMobsForWave();
+    this.mobsToSpawn = this._mobsForPeriod();
     this.mobsLeft    = this.mobsToSpawn;
     this.state       = 'spawning';
   },
 
-  getPeriod() {
-    const progress = this.wave / this.totalWaves;
-    if (progress <= CONFIG.waves.morningUntil)   return 'morning';
-    if (progress <= CONFIG.waves.afternoonUntil) return 'afternoon';
-    return 'night';
-  },
-
-  // chamado quando um mob morre
   onMobDied(mobs) {
-    this.mobsLeft = mobs.filter(m => m.state !== 'dead').length + this.mobsToSpawn;
+    this.mobsLeft = mobs.filter(m => m.state !== 'dead' && !m.markedForRemoval).length
+                  + this.mobsToSpawn;
     if (this.mobsLeft <= 0 && this.mobsToSpawn <= 0) {
-      this.state = 'waveComplete';
+      this.state = 'waiting';
     }
   },
 
-  // chamado pelo game loop para saber se deve spawnar
   shouldSpawn() {
     return this.state === 'spawning' && this.mobsToSpawn > 0;
   },
@@ -58,24 +36,7 @@ const WaveSystem = {
     if (this.mobsToSpawn <= 0) this.state = 'waiting';
   },
 
-  // avança para próxima onda
   nextWave() {
-    if (this.wave >= this.totalWaves) {
-      // próxima fase
-      this.phase++;
-      this.wave       = 1;
-      this.totalWaves = this._calcTotalWaves(this.phase);
-    } else {
-      this.wave++;
-    }
     this._startWave();
-  },
-
-  getLabel() {
-    return `Onda ${this.wave}/${this.totalWaves}  ·  Fase ${this.phase}`;
-  },
-
-  getPeriodIcon() {
-    return { morning: '🌅', afternoon: '☀️', night: '🌙' }[this.getPeriod()];
   },
 };

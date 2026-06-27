@@ -5,7 +5,8 @@ const HEROES = [
     desc: 'Combatente corpo a corpo. Resistente e letal com espada e escudo.',
     atk: 8, def: 7, hp: 10,
     color: '#e8a030',
-    locked: false,
+    locked: true,
+    hidden: true,
   },
   {
     id: 'hunter',
@@ -21,7 +22,7 @@ const HEROES = [
     desc: 'Domina as artes arcanas. Dano massivo com chance de cura em críticos.',
     atk: 10, def: 3, hp: 5,
     color: '#9b6dff',
-    locked: false,
+    locked: true,
   },
   {
     id: 'cleric',
@@ -29,16 +30,24 @@ const HEROES = [
     desc: 'Guardião sagrado. Cura aliados e usa escudo para bloquear ataques.',
     atk: 5, def: 9, hp: 9,
     color: '#f0e040',
-    locked: true, // DLC / evento especial
+    locked: true,
+    hidden: true,
   },
 ];
 
 const HeroSelect = {
-  selectedIdx: 0,
+  selectedIdx: 1,
   onConfirm: null,
 
   init(onConfirm) {
     this.onConfirm = onConfirm;
+    this._idleSheets = {};
+    const idleMap = { hunter: { src: 'assets/sprites/heroes/hunter/idle.png', frameCount: 4 } };
+    for (const [id, cfg] of Object.entries(idleMap)) {
+      const img = new Image();
+      img.src = cfg.src;
+      this._idleSheets[id] = { img, frameCount: cfg.frameCount };
+    }
     this._build();
     this._render();
   },
@@ -60,6 +69,7 @@ const HeroSelect = {
 
       <div id="hs-scene">
         <canvas id="hs-canvas"></canvas>
+        <button id="hs-reset-all-btn" title="Resetar progresso de todos os heróis">↺ Reset</button>
       </div>
 
       <div id="hs-bottom">
@@ -68,14 +78,25 @@ const HeroSelect = {
     `;
     document.getElementById('canvas-wrap').replaceWith(overlay);
 
-    document.getElementById('hs-confirm-btn').addEventListener('click', () => {
+    const confirmHero = () => {
       const hero = HEROES[this.selectedIdx];
       if (hero.locked) return;
       this._startPortalTransition(() => this.onConfirm(hero.id));
-    });
+    };
+
+    document.getElementById('hs-confirm-btn').addEventListener('click', confirmHero);
+
+    this._spaceHandler = (e) => { if (e.code === 'Space') { e.preventDefault(); confirmHero(); } };
+    document.addEventListener('keydown', this._spaceHandler);
 
     const canvas = document.getElementById('hs-canvas');
     canvas.addEventListener('click', (e) => this._onCanvasClick(e));
+
+    document.getElementById('hs-reset-all-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      HEROES.forEach(h => SaveSystem.clear(h.id));
+      this._render();
+    });
   },
 
   _render() {
@@ -84,8 +105,11 @@ const HeroSelect = {
     document.getElementById('hs-hero-name').textContent = hero.name;
     document.getElementById('hs-hero-desc').textContent = hero.desc;
 
-    const lvl = 1;
-    document.getElementById('hs-hero-level').textContent = `Lv. ${lvl}`;
+    const saved = SaveSystem.peek(hero.id);
+    const lvl = saved ? saved.level : 1;
+    document.getElementById('hs-hero-level').textContent = saved
+      ? `Lv. ${lvl}  ·  🪙 ${saved.gold}`
+      : `Lv. 1  ·  Novo`;
 
     document.getElementById('hs-atk-bar').style.width = (hero.atk * 10) + '%';
     document.getElementById('hs-def-bar').style.width = (hero.def * 10) + '%';
@@ -131,7 +155,7 @@ const HeroSelect = {
     ctx.fillRect(0, H * 0.5, W, H * 0.5);
 
     // heróis (antes da fogueira para ficar atrás das chamas)
-    const visible = HEROES.filter(h => !h.locked);
+    const visible = HEROES.filter(h => !h.hidden);
     const positions = this._getPositions(visible.length, cx, cy, W, H);
 
     visible.forEach((hero, i) => {
@@ -156,6 +180,15 @@ const HeroSelect = {
   },
 
   _getPositions(count, cx, cy, W, H) {
+    if (count === 1) {
+      return [{ x: cx - W * 0.15, y: cy - H * 0.05 }];
+    }
+    if (count === 2) {
+      return [
+        { x: cx - W * 0.22, y: cy - H * 0.05 },
+        { x: cx + W * 0.22, y: cy - H * 0.05 },
+      ];
+    }
     if (count === 3) {
       return [
         { x: cx - W * 0.28, y: cy - H * 0.05 },
@@ -192,58 +225,72 @@ const HeroSelect = {
   },
 
   _drawHeroPlaceholder(ctx, hero, x, y, isSelected, t, cx, cy) {
-    const size = isSelected ? 64 : 44;
-    // idle: leve bob para cima e para baixo (cada herói com fase diferente)
+    const size = 96;
     const idleOffset = Math.sin(t * 1.8 + (cx - x) * 0.05) * 3;
     const breatheY = y + idleOffset;
-    const alpha = isSelected ? 1.0 : 0.65;
+    const alpha = 1.0;
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // sombra no chão (encolhe quando hero sobe)
+    // sombra no chão
     const shadowScale = 1 - Math.abs(idleOffset) * 0.02;
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
     ctx.ellipse(x, y + size * 0.08, size * 0.38 * shadowScale, size * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // corpo placeholder com idle
-    ctx.fillStyle = hero.color;
-    ctx.fillRect(x - size / 2, breatheY - size, size, size);
+    const sheet = this._idleSheets?.[hero.id];
+    const hasSprite = sheet?.img?.complete && sheet.img.naturalWidth > 0;
+    const fw = hasSprite ? sheet.img.naturalWidth / sheet.frameCount : 0;
+    const fh = hasSprite ? sheet.img.naturalHeight : 0;
+    const frame = hasSprite ? Math.floor(t * (1000 / 180) % sheet.frameCount) : 0;
+    const dx = x - size / 2, dy = breatheY - size;
 
-    // face simples
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    const eyeY = breatheY - size * 0.75;
-    const eyeSize = Math.max(2, size * 0.08);
-    ctx.fillRect(x - size * 0.2, eyeY, eyeSize, eyeSize);
-    ctx.fillRect(x + size * 0.1, eyeY, eyeSize, eyeSize);
-
-    ctx.restore();
-
-    // seta indicadora
-    if (isSelected) {
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      const ax = x, ay = breatheY - size - 14;
-      ctx.moveTo(ax, ay + 10);
-      ctx.lineTo(ax - 7, ay);
-      ctx.lineTo(ax + 7, ay);
-      ctx.closePath();
-      ctx.fill();
-
+    // outline: silhueta sólida deslocada 8x na cor do herói
+    if (isSelected && hasSprite) {
+      const o = 2;
+      // cria silhueta: pixels opacos viram cor sólida, resto transparente
+      const tmp = document.createElement('canvas');
+      tmp.width = size; tmp.height = size;
+      const tc = tmp.getContext('2d');
+      tc.drawImage(sheet.img, frame * fw, 0, fw, fh, 0, 0, size, size);
+      // threshold: zeramos pixels com alpha < 128 e pintamos o resto com a cor
+      const imgData = tc.getImageData(0, 0, size, size);
+      const d = imgData.data;
+      const [r, g, b] = hero.color.match(/\w\w/g).map(h => parseInt(h, 16));
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 64) { d[i] = r; d[i+1] = g; d[i+2] = b; d[i+3] = 255; }
+        else { d[i+3] = 0; }
+      }
+      tc.putImageData(imgData, 0, 0);
       ctx.save();
-      ctx.strokeStyle = hero.color;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = hero.color;
-      ctx.shadowBlur = 10;
-      ctx.strokeRect(x - size / 2 - 2, breatheY - size - 2, size + 4, size + 4);
+      ctx.globalAlpha = alpha;
+      const offsets = [[-o,0],[o,0],[0,-o],[0,o],[-o,-o],[o,-o],[-o,o],[o,o]];
+      for (const [ox, oy] of offsets) {
+        ctx.drawImage(tmp, dx + ox, dy + oy);
+      }
       ctx.restore();
     }
 
+    // sprite normal por cima
+    if (hasSprite) {
+      ctx.drawImage(sheet.img, frame * fw, 0, fw, fh, dx, dy, size, size);
+    } else {
+      ctx.fillStyle = hero.color;
+      ctx.fillRect(dx, dy, size, size);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      const eyeY = breatheY - size * 0.75;
+      const eyeSize = Math.max(2, size * 0.08);
+      ctx.fillRect(x - size * 0.2, eyeY, eyeSize, eyeSize);
+      ctx.fillRect(x + size * 0.1, eyeY, eyeSize, eyeSize);
+    }
+
+    ctx.restore();
+
     // nome embaixo
     ctx.fillStyle = isSelected ? '#fff' : '#666';
-    ctx.font = `${isSelected ? 9 : 7}px monospace`;
+    ctx.font = `${isSelected ? 12 : 10}px monospace`;
     ctx.textAlign = 'center';
     ctx.fillText(hero.name, x, y + 18);
   },
@@ -291,7 +338,7 @@ const HeroSelect = {
     const W = canvas.width, H = canvas.height;
     const cx = W / 2, cy = H * 0.68;
 
-    const visible = HEROES.filter(h => !h.locked);
+    const visible = HEROES.filter(h => !h.hidden);
     const positions = this._getPositions(visible.length, cx, cy, W, H);
 
     visible.forEach((hero, i) => {
@@ -409,12 +456,17 @@ const HeroSelect = {
   },
 
   hide() {
+    if (this._spaceHandler) {
+      document.removeEventListener('keydown', this._spaceHandler);
+      this._spaceHandler = null;
+    }
     const el = document.getElementById('hero-select-overlay');
     if (el) {
       // reinsere o canvas-wrap no lugar do overlay
       const canvasWrap = document.createElement('div');
       canvasWrap.id = 'canvas-wrap';
       canvasWrap.innerHTML = '<canvas id="game-canvas" width="1152" height="648"></canvas>';
+      canvasWrap.style.position = 'relative';
       el.replaceWith(canvasWrap);
     }
     document.getElementById('hud').style.display = 'flex';
