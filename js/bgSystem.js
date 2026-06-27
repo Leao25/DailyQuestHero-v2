@@ -126,10 +126,13 @@ const BgSystem = {
 
   load(phase, period) {
     if (this._phase === phase && this._period === period) return;
+    const phaseChanged = this._phase !== phase;
     this._phase = phase;
     this._period = period;
-    this._nearProps = [];
-    this._nextNearWorldX = this._nearConfig.minGap;
+    if (phaseChanged) {
+      this._nearProps = [];
+      this._nextNearWorldX = this._nearConfig.minGap;
+    }
     this.preload(phase);
   },
 
@@ -356,10 +359,8 @@ const BgSystem = {
     // spawn: quando o herói avança além do próximo worldX de spawn
     if (heroWorldX >= this._nextNearWorldX) {
       const def = pool[Math.floor(Math.random() * pool.length)];
-      const imgKey = def.key.replace('{period}', period);
-      // posição em screen space no lado direito, convertida para world space do parallax
       const propWorldX = heroWorldX * parallax + 1600;
-      this._nearProps.push({ imgKey, worldX: propWorldX, scale: def.scale, yOffset: def.yOffset ?? 0 });
+      this._nearProps.push({ keyTemplate: def.key, worldX: propWorldX, scale: def.scale, yOffset: def.yOffset ?? 0 });
       this._nextNearWorldX = heroWorldX + minGap + Math.random() * (maxGap - minGap);
     }
 
@@ -370,7 +371,7 @@ const BgSystem = {
   _drawNearProps(ctx, heroWorldX, period, CW, groundY) {
     const parallax = 0.35;
     for (const prop of this._nearProps) {
-      const img = this._images[prop.imgKey];
+      const img = this._images[prop.keyTemplate.replace('{period}', period)];
       if (!img || !img.complete || !img.naturalWidth) continue;
       const dw = Math.round(img.naturalWidth  * prop.scale);
       const dh = Math.round(img.naturalHeight * prop.scale);
