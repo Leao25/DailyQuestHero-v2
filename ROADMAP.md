@@ -1,57 +1,43 @@
-# DailyQuestHero v2 — Roadmap
+# DailyQuestHero — Roadmap
 
-## Concluído ✅
-- Engine base (loop, combat, wave system)
-- Tela de seleção de herói com animação de portal
-- HUD (HP, XP, gold, fase/hora)
-- Sistema de save (localStorage, persiste entre sessões)
-- Sistema de baús (4 raridades, 5 slots por raridade)
-- Combat log (XP, gold, level up, drop)
-- Números flutuantes de dano
-- Morte do hero + tela de game over
-- Modo Auto (reinicia fase ao morrer + avança fase automaticamente)
-- gameSpeed global
-- Ciclo dia/noite em tempo real (manhã/tarde/noite, 6min ciclo completo)
-- BG parallax com 8 camadas (gradiente, estrelas, astros, nuvens, montanhas, mid, near, chão)
-- Assets de BG: sol, lua, sol nascente, nuvens manhã/noite
-- Loop rodando em background (Web Worker, não pausa ao trocar de aba)
-- Fase avança automaticamente ao fim da noite com Auto ativo
+## Concluído
 
----
-
-## Em andamento 🔧
-- Assets de BG restantes: montanhas, fundo médio, vegetação (fase1)
-- Sprites de heróis e mobs
+- [x] Canvas 720×180, transparente sobre gradiente de período (morning/afternoon/night)
+- [x] Logo por período (morning/afternoon/night)
+- [x] BgSystem com parallax (far/mid/near) + ground tile
+- [x] Hero (Caçadora) com animação walk/attack, sprite real
+- [x] Mob (Lobo) com animação walk/attack, sprite real
+- [x] Sistema de combate — hero range (flecha), lobo melee
+- [x] HP bars (hero no HUD, mob no canvas)
+- [x] XP + level up
+- [x] Gold
+- [x] Log de eventos no canvas (XP, gold, level up, drops)
+- [x] Floating numbers (dano no mob, dano no hero)
+- [x] Partículas de morte dos mobs
+- [x] Game Over com stats da run + botão Auto (reinício automático)
+- [x] Web Worker para manter o jogo rodando em background (aba minimizada)
+- [x] Painel de Inventário (esquerda)
+- [x] Sistema de baús — mobs dropam baús por raridade (Normal/Raro/Mítico/Lendário)
+- [x] Painel de Baús (direita) — empilha até 5x por raridade, clicável
 
 ---
 
-## Pendente / Decisão futura ⏸
-- **Boss**: lógica de spawn desativada temporariamente — definir condição de spawn e dificuldade
-- **Tela "Fase Concluída"**: existe no código, ativada manualmente; reavaliar quando boss voltar
+## Próximos Passos
 
----
+### Alta prioridade
+- [ ] Segundo mob (variedade de inimigos, fase 2+)
+- [ ] Definir loot tables dos baús (itens por raridade)
+- [ ] Painel de Missões — objetivos além de só farmar
 
-## Backlog 📋
+### Média prioridade
+- [ ] Animação de abertura de baú (efeito visual ao clicar)
+- [ ] Sistema de craft — combinar itens
+- [ ] Equipamentos — itens que boosteiam stats do hero
+- [ ] Segundo hero (Mago, Guerreiro?)
 
-### Mapa
-- Overlay sobre o canvas
-- Jogador navega livremente entre fases já concluídas
-- Transição via efeito de portal (mesmo da tela de seleção)
-
-### Sistema de Itens
-- Pré-requisito para Craft e Baús com loot real
-- Itens com stats, raridade, tipo (arma/armadura/acessório)
-
-### Tela de Craft
-- Combina itens/materiais dropados pelos mobs
-- Receitas desbloqueáveis por progressão
-- Interface modal acessível pelo HUD
-
-### Árvore de Habilidades
-- Uma árvore por classe de herói
-- Pontos ganhos ao subir de nível
-- Habilidades passivas e ativas
-
-### Mercado Global de Itens *(futuro — requer backend)*
-- Jogadores compram/vendem itens entre si
-- Requer API + banco de dados + autenticação
+### Futuro
+- [ ] Sistema de ferreiro — trocar N itens normais por 1 raro aleatório
+- [ ] Mapa — progressão de zonas/fases
+- [ ] Consumíveis
+- [ ] Persistência (localStorage ou backend)
+- [ ] Domínio: DailyQuestHero.com.br

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Ground Preview — DailyQuestHero</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; color: #eee; font-family: monospace;
+       display: flex; flex-direction: column; align-items: center;
+       justify-content: center; min-height: 100vh; gap: 20px; padding: 20px; }
+
+h2 { color: #f0c040; font-size: 13px; letter-spacing: 3px; }
+
+#controls {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 12px 20px;
+}
+
+.ctrl { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.ctrl label { font-size: 10px; color: rgba(255,255,255,0.4); }
+.ctrl input[type=range] { width: 120px; }
+.ctrl span { font-size: 12px; color: #f0c040; min-width: 40px; text-align: center; }
+
+.divider { width: 1px; height: 40px; background: rgba(255,255,255,0.1); }
+
+button {
+  padding: 7px 16px; border: none; border-radius: 4px;
+  cursor: pointer; font-size: 11px; font-family: monospace;
+  background: #2a5caa; color: #fff;
+}
+button:hover { filter: brightness(1.2); }
+
+/* canvas de preview — mesma proporção do jogo */
+#canvas-wrap {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; overflow: hidden;
+  background: linear-gradient(180deg, #051648 0%, #0A2062 50%, #213D8F 100%);
+}
+canvas { display: block; image-rendering: pixelated; }
+
+#output {
+  font-size: 11px; color: rgba(255,255,255,0.35);
+  background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px 14px;
+}
+</style>
+</head>
+<body>
+
+<h2>GROUND PREVIEW</h2>
+
+<div id="controls">
+  <div class="ctrl">
+    <label>📂 PNG</label>
+    <button onclick="document.getElementById('file-input').click()">Carregar</button>
+    <input type="file" id="file-input" accept="image/*" style="display:none" onchange="loadImg(event)"/>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="ctrl">
+    <label>Largura tile</label>
+    <input type="range" id="dw" min="20" max="720" value="200" oninput="update()"/>
+    <span id="dw-val">200px</span>
+  </div>
+
+  <div class="ctrl">
+    <label>Altura tile</label>
+    <input type="range" id="dh" min="4" max="180" value="40" oninput="update()"/>
+    <span id="dh-val">40px</span>
+  </div>
+
+  <div class="ctrl">
+    <label>Posição Y</label>
+    <input type="range" id="dy" min="-100" max="180" value="148" oninput="update()"/>
+    <span id="dy-val">148px</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="ctrl">
+    <label>Corte PNG (srcH %)</label>
+    <input type="range" id="srch" min="1" max="100" value="100" oninput="update()"/>
+    <span id="srch-val">100%</span>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="c" width="720" height="180"></canvas>
+</div>
+
+<div id="output">largura: 200 · altura: 40 · y: 148</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const CW = 720, CH = 180;
+let img = null;
+let animX = 0;
+
+function loadImg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  img = new Image();
+  img.onload = update;
+  img.src = URL.createObjectURL(file);
+}
+
+function update() {
+  const dw = parseInt(document.getElementById('dw').value);
+  const dh = parseInt(document.getElementById('dh').value);
+  const dy = parseInt(document.getElementById('dy').value);
+  const srch = parseInt(document.getElementById('srch').value);
+  document.getElementById('dw-val').textContent = dw + 'px';
+  document.getElementById('dh-val').textContent = dh + 'px';
+  document.getElementById('dy-val').textContent = dy + 'px';
+  document.getElementById('srch-val').textContent = srch + '%';
+  document.getElementById('output').textContent =
+    `dw: ${dw}  ·  dh: ${dh}  ·  dy: ${dy}  ·  srcH: ${srch}%`;
+}
+
+function loop() {
+  ctx.clearRect(0, 0, CW, CH);
+
+  const dw = parseInt(document.getElementById('dw').value);
+  const dh = parseInt(document.getElementById('dh').value);
+  const dy = parseInt(document.getElementById('dy').value);
+
+  animX = (animX + 0.5) % dw;
+  const offset = Math.floor(animX);
+
+  if (img?.complete && img.naturalWidth) {
+    const srch   = parseInt(document.getElementById('srch').value);
+    const srcH   = Math.round(img.naturalHeight * srch / 100);
+    const srcY   = img.naturalHeight - srcH; // corta de baixo para cima
+    const srcW   = img.naturalWidth;
+    for (let i = -1; i < Math.ceil(CW / dw) + 1; i++) {
+      ctx.drawImage(img, 0, srcY, srcW, srcH, Math.round(i * dw - offset), dy, dw + 1, dh);
+    }
+  } else {
+    ctx.fillStyle = '#3d8c1e';
+    ctx.fillRect(0, dy, CW, dh);
+  }
+
+  // linha de referência groundY
+  const groundY = parseInt(document.getElementById('dy').value);
+  ctx.strokeStyle = 'rgba(240,192,64,0.7)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, 148); ctx.lineTo(CW, 148);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(240,192,64,0.7)';
+  ctx.font = '10px monospace';
+  ctx.fillText('groundY: 148', 4, 145);
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>

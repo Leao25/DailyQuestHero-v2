@@ -3,112 +3,87 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DailyQuestHero v2</title>
+  <title>DailyQuestHero</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-
+<body class="period-night">
+  <canvas id="cloud-canvas"></canvas>
   <div id="page-wrapper">
+    <img id="logo" src="assets/logo/dqh_logo.png" alt="DailyQuestHero" />
 
-    <!-- Logo -->
-    <div id="game-logo">
-      <img src="assets/ui/dqh_logo.png" alt="DailyQuestHero" id="logo-img"
-           onerror="this.style.display='none';document.getElementById('logo-placeholder').style.display='block'" />
-      <span id="logo-placeholder">DailyQuestHero</span>
-    </div>
+    <div id="game-area">
 
-    <!-- Canvas principal -->
-    <div id="canvas-wrap">
-      <canvas id="game-canvas" width="1152" height="648"></canvas>
-    </div>
+      <!-- Painel esquerdo: Inventário -->
+      <div id="inv-panel" class="side-panel">
+        <div class="panel-title">Inventário</div>
+        <div id="inv-grid"></div>
+      </div>
 
-    <!-- Phase complete overlay -->
-    <div id="phase-complete">
-      <div id="phase-complete-title">FASE CONCLUÍDA</div>
-      <div id="phase-complete-sub"></div>
-      <button id="btn-next-phase" onclick="startNextPhase()">Próxima Fase →</button>
-    </div>
-
-    <!-- Death buttons (fora do canvas-wrap para sobreviver ao hide/show) -->
-    <div id="death-btns">
-      <button id="btn-restart" onclick="restartPhase()">Recomeçar</button>
-      <button id="btn-heroselect" onclick="goToHeroSelect()">Seleção de Personagem</button>
-    </div>
-
-    <!-- Combat Log (fora do canvas-wrap para sobreviver ao hide/show) -->
-    <div id="combat-log"></div>
-
-    <!-- HUD — fora do canvas, em HTML puro -->
-    <div id="hud">
-
-      <div id="hud-left">
-        <div id="hero-name">Guerreiro</div>
-        <div id="hero-level">Lv. 1</div>
-        <div class="bar-row">
-          <span class="bar-label">HP</span>
-          <div class="bar-bg"><div id="hp-bar" class="bar-fill hp-fill" style="width:100%"></div></div>
-          <span class="bar-text" id="hp-text">100/100</span>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">XP</span>
-          <div class="bar-bg"><div id="xp-bar" class="bar-fill xp-fill" style="width:0%"></div></div>
-          <span class="bar-text" id="xp-text">0/100</span>
+      <!-- Centro: canvas + hud -->
+      <div id="game-center">
+        <canvas id="game-canvas" width="720" height="180"></canvas>
+        <div id="hud">
+          <div id="hud-left">
+            <span id="hud-name">—</span>
+            <span id="hud-level">Lv.1</span>
+          </div>
+          <div id="hud-bars">
+            <div class="hud-bar-row">
+              <span class="hud-bar-label">HP</span>
+              <div class="hud-bar-bg"><div class="hud-bar-fill hp" id="hud-hp-bar" style="width:100%"></div></div>
+              <span class="hud-bar-text" id="hud-hp-text">100/100</span>
+            </div>
+            <div class="hud-bar-row">
+              <span class="hud-bar-label">XP</span>
+              <div class="hud-bar-bg"><div class="hud-bar-fill xp" id="hud-xp-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+          <div id="hud-right">
+            <span id="hud-gold">0g</span>
+            <button id="hud-auto" class="auto-btn">Auto</button>
+          </div>
         </div>
       </div>
 
-      <div id="hud-center">
-        <span id="zone-label">FASE 1 — VILA</span>
-      </div>
-
-      <div id="hud-right">
-        <span id="gold-display">🪙 0</span>
-        <div id="menu-btns">
-          <button>⚔️</button>
-          <button>💼</button>
-          <button id="btn-autorepeat" title="Auto: OFF" onclick="toggleAutoRepeat()">Auto</button>
+      <!-- Painel direito: Baús -->
+      <div id="chest-panel" class="side-panel">
+        <div class="panel-title">Baús</div>
+        <div id="chest-grid">
+          <div id="chest-slot-normal"    class="chest-slot"></div>
+          <div id="chest-slot-rare"      class="chest-slot"></div>
+          <div id="chest-slot-mythic"    class="chest-slot"></div>
+          <div id="chest-slot-legendary" class="chest-slot"></div>
         </div>
       </div>
 
-    </div>
+    </div><!-- /game-area -->
 
-    <!-- Baús -->
-    <div id="chest-bar">
-      <span id="chest-bar-label">BAÚS</span>
-      <div id="chest-slots">
-        <div class="chest-item" id="chest-item-normal">
-          <button class="chest-btn" id="chest-btn-normal" onclick="ChestSystem.open('normal')">N</button>
-          <div class="chest-dots" id="chest-dots-normal"></div>
+    <div id="gameover" class="hidden">
+      <div id="gameover-box">
+        <h2>Game Over</h2>
+        <div class="go-stats">
+          <div class="go-row"><span>Nível</span><span id="go-level">—</span></div>
+          <div class="go-row"><span>Mobs</span><span id="go-mobs">—</span></div>
+          <div class="go-row"><span>Ouro</span><span id="go-gold">—</span></div>
+          <div class="go-row"><span>Tempo</span><span id="go-time">—</span></div>
         </div>
-        <div class="chest-item" id="chest-item-rare">
-          <button class="chest-btn" id="chest-btn-rare" onclick="ChestSystem.open('rare')">R</button>
-          <div class="chest-dots" id="chest-dots-rare"></div>
-        </div>
-        <div class="chest-item" id="chest-item-epic">
-          <button class="chest-btn" id="chest-btn-epic" onclick="ChestSystem.open('epic')">E</button>
-          <div class="chest-dots" id="chest-dots-epic"></div>
-        </div>
-        <div class="chest-item" id="chest-item-legendary">
-          <button class="chest-btn" id="chest-btn-legendary" onclick="ChestSystem.open('legendary')">L</button>
-          <div class="chest-dots" id="chest-dots-legendary"></div>
-        </div>
+        <button id="go-restart">Reiniciar</button>
+        <p id="go-auto-msg" class="hidden"></p>
       </div>
     </div>
 
-  </div>
+  </div><!-- /page-wrapper -->
 
+  <script src="js/gameover.js"></script>
+  <script src="js/clouds.js"></script>
   <script src="js/config.js"></script>
-  <script src="js/dayCycle.js"></script>
   <script src="js/bgSystem.js"></script>
-  <script src="js/saveSystem.js"></script>
-  <script src="js/chestSystem.js"></script>
-  <script src="js/combatLog.js"></script>
-  <script src="js/floatingNumbers.js"></script>
   <script src="js/hero.js"></script>
   <script src="js/mob.js"></script>
   <script src="js/combat.js"></script>
   <script src="js/hud.js"></script>
-  <script src="js/waveSystem.js"></script>
-  <script src="js/heroSelect.js"></script>
-  <script src="js/game.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/chestHud.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

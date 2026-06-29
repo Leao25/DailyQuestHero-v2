@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Canvas Sizer — DailyQuestHero</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: linear-gradient(180deg, #051648 0%, #0A2062 50%, #213D8F 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  font-family: 'Courier New', monospace;
+  color: #fff;
+}
+
+h1 {
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctrl-group label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+
+.divider {
+  width: 1px; height: 28px;
+  background: rgba(255,255,255,0.1);
+}
+
+input[type=number] {
+  width: 64px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+#info {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  white-space: nowrap;
+}
+
+#canvas-wrap {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  overflow: hidden;
+}
+
+canvas { display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+
+<h1>Canvas Sizer</h1>
+
+<div id="controls">
+  <div class="ctrl-group">
+    <label>Canvas W</label>
+    <input type="number" id="inp-w" value="720" min="100" max="1920" step="8"/>
+    <span style="color:rgba(255,255,255,0.2)">×</span>
+    <label>H</label>
+    <input type="number" id="inp-h" value="180" min="60" max="1080" step="4"/>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="ctrl-group">
+    <label>Hero W</label>
+    <input type="number" id="inp-hw" value="24" min="4" max="200" step="2"/>
+    <span style="color:rgba(255,255,255,0.2)">×</span>
+    <label>H</label>
+    <input type="number" id="inp-hh" value="36" min="4" max="200" step="2"/>
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="info"></div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="preview"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('preview');
+const ctx    = canvas.getContext('2d');
+const inpW   = document.getElementById('inp-w');
+const inpH   = document.getElementById('inp-h');
+const inpHW  = document.getElementById('inp-hw');
+const inpHH  = document.getElementById('inp-hh');
+const info   = document.getElementById('info');
+
+function draw() {
+  const W  = parseInt(inpW.value)  || 720;
+  const H  = parseInt(inpH.value)  || 180;
+  const HW = parseInt(inpHW.value) || 24;
+  const HH = parseInt(inpHH.value) || 36;
+
+  canvas.width  = W;
+  canvas.height = H;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const GY = Math.round(H * 0.82);
+
+  // chão
+  ctx.fillStyle = '#16162a';
+  ctx.fillRect(0, GY, W, H - GY);
+
+  // linha do chão
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(0, GY, W, 1);
+
+  // grade de terços
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W/3, 0);   ctx.lineTo(W/3, H);
+  ctx.moveTo(2*W/3, 0); ctx.lineTo(2*W/3, H);
+  ctx.moveTo(0, H/3);   ctx.lineTo(W, H/3);
+  ctx.moveTo(0, 2*H/3); ctx.lineTo(W, 2*H/3);
+  ctx.stroke();
+
+  // hero placeholder (verde)
+  const groundOffset = Math.round(HH * 0.2);
+  const hx = Math.round(W * 0.2) - HW / 2;
+  const hy = GY - HH + groundOffset;
+  ctx.fillStyle = '#50c878';
+  ctx.fillRect(hx, hy, HW, HH);
+
+  // mob placeholder (vermelho)
+  const mx = Math.round(W * 0.55) - HW / 2;
+  const my = GY - HH + groundOffset;
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(mx, my, HW, HH);
+
+  // dimensões do hero em overlay
+  ctx.fillStyle = 'rgba(80,200,120,0.6)';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${HW}×${HH}`, hx, hy - 3);
+
+  // label canvas
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const g = gcd(W, H);
+  const ratio = `${W/g}:${H/g}`;
+  const totalPx = (W * H / 1000).toFixed(0);
+  info.textContent = `${ratio}  ·  ${totalPx}k px`;
+}
+
+[inpW, inpH, inpHW, inpHH].forEach(el => el.addEventListener('input', draw));
+draw();
+</script>
+</body>
+</html>
