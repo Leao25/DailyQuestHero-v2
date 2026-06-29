@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background 2s ease;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  /* Period backgrounds */
+  .period-morning   { background: linear-gradient(180deg, #FFC88F 0%, #85C8F3 25%, #0C80BD 60%, #1F4C85 100%); }
+  .period-afternoon { background: linear-gradient(180deg, #FFA477 0%, #F08A7B 20%, #6F5B96 55%, #252D6E 100%); }
+  .period-night     { background: linear-gradient(180deg, #213D8F 0%, #0A2062 50%, #051648 100%); }
+
+  /* Star twinkle */
+  .star {
+    position: fixed;
+    border-radius: 50%;
+    background: #fff;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    animation: twinkle var(--dur) ease-in-out infinite var(--delay);
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; }
+    50%       { opacity: var(--peak); }
+  }
+}
